@@ -167,7 +167,7 @@
         .save-btn { cursor: pointer; background: rgba(46, 204, 113, 0.3) !important; transition: all 0.2s; }
         .save-btn:hover { background: rgba(46, 204, 113, 0.5) !important; }
 
-        .game-main-area { flex: 1; display: flex; min-height: 0; padding: 15px; gap: 15px; }
+        .game-main-area { flex: 1; display: flex; min-height: 0; padding: 15px; }
 
         /* Left Panel - Grey block for character info */
         .character-info-panel { width: 380px; background: linear-gradient(145deg, #5a5a5a, #4a4a4a); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 2px solid #777; }
@@ -180,7 +180,10 @@
         .panel-stat-bar-bg { flex: 1; height: 18px; background: rgba(0,0,0,0.4); border-radius: 9px; overflow: hidden; position: relative; }
         .panel-stat-bar-fill { height: 100%; border-radius: 9px; transition: width 0.3s; }
         .panel-hp-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); }
-        .panel-mental-fill { background: linear-gradient(90deg, #9b59b6, #8e44ad); }
+        .panel-mental-fill.vulnerable { background: linear-gradient(90deg, #ff4757, #ff6b81) !important; animation: pulse-red 1s infinite; }
+        @keyframes pulse-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+        .placement-mental-fill.vulnerable { background: linear-gradient(90deg, #ff4757, #ff6b81) !important; }
         .panel-energy-fill { background: linear-gradient(90deg, #3498db, #2980b9); }
         .panel-action-fill { background: linear-gradient(90deg, #2ecc71, #27ae60); }
         .panel-stat-text { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7em; font-weight: bold; color: #fff; }
@@ -198,8 +201,45 @@
         .panel-talents-title { font-size: 0.9em; color: #ffd700; margin-bottom: 8px; }
         .talent-tag { display: inline-block; background: rgba(255,215,0,0.2); color: #ffd700; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; margin: 2px; border: 1px solid rgba(255,215,0,0.3); }
 
-        /* Right Area - Character cards */
-        .character-cards-area { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+        /* Character Detail Popup */
+        .char-detail-popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+        .char-detail-content { background: linear-gradient(145deg, #2c3e50, #1a252f); border-radius: 20px; padding: 25px; width: 400px; max-width: 90vw; max-height: 90vh; overflow-y: auto; border: 3px solid #ffd700; box-shadow: 0 20px 60px rgba(0,0,0,0.8); position: relative; }
+        .close-popup { position: absolute; top: 10px; right: 15px; background: none; border: none; color: #aaa; font-size: 1.5em; cursor: pointer; transition: color 0.2s; }
+        .close-popup:hover { color: #fff; }
+        .char-detail-header { text-align: center; padding-bottom: 15px; border-bottom: 2px solid rgba(255,215,0,0.3); margin-bottom: 15px; }
+        .char-detail-name { font-size: 1.8em; color: #ffd700; font-weight: bold; }
+        .char-detail-title { font-size: 1em; color: #aaa; margin-top: 5px; }
+        .char-detail-attrs { display: flex; gap: 8px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+        .char-detail-attr { background: rgba(255,255,255,0.1); padding: 3px 10px; border-radius: 12px; font-size: 0.75em; color: #ddd; }
+        .char-detail-stats { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .char-detail-skills { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .char-detail-skill { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px; border-left: 4px solid; }
+        .char-detail-skill.basic { border-color: #27ae60; }
+        .char-detail-skill.skill { border-color: #2980b9; }
+        .char-detail-skill.ultimate { border-color: #c0392b; }
+        .char-detail-skill-name { font-weight: bold; color: #fff; margin-bottom: 4px; }
+        .char-detail-skill-desc { font-size: 0.85em; color: #aaa; margin-bottom: 6px; }
+        .char-detail-skill-cost { font-size: 0.75em; color: #ffd700; }
+        .char-detail-talents { padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .char-detail-talents-title { color: #ffd700; margin-bottom: 10px; font-size: 0.9em; }
+        .skill-use-btn { width: 100%; margin-top: 8px; padding: 8px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .skill-use-btn.basic { background: linear-gradient(90deg, #27ae60, #2ecc71); color: white; }
+        .skill-use-btn.skill { background: linear-gradient(90deg, #2980b9, #3498db); color: white; }
+        .skill-use-btn.ultimate { background: linear-gradient(90deg, #c0392b, #e74c3c); color: white; }
+        .skill-use-btn:disabled { background: #666; cursor: not-allowed; opacity: 0.5; }
+        .detail-stat-row { display: flex; align-items: center; gap: 10px; }
+        .detail-stat-icon { font-size: 1.2em; width: 24px; text-align: center; }
+        .detail-stat-bar-bg { flex: 1; height: 18px; background: rgba(0,0,0,0.4); border-radius: 9px; overflow: hidden; position: relative; }
+        .detail-stat-bar-fill { height: 100%; border-radius: 9px; transition: width 0.3s; }
+        .detail-hp-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+        .detail-mental-fill { background: linear-gradient(90deg, #9b59b6, #8e44ad); }
+        .detail-mental-fill.vulnerable { background: linear-gradient(90deg, #ff4757, #ff6b81) !important; animation: pulse-red 1s infinite; }
+        .detail-energy-fill { background: linear-gradient(90deg, #3498db, #2980b9); }
+        .detail-action-fill { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        .detail-stat-text { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7em; font-weight: bold; color: #fff; }
+
+        /* Right Area - Character cards (now full width) */
+        .character-cards-area { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 0 20px; }
         .cards-row { display: flex; justify-content: center; gap: 20px; flex: 1; align-items: center; }
         .enemy-row { align-items: flex-start; padding-top: 10px; }
         .player-row { align-items: flex-end; padding-bottom: 10px; }
@@ -235,12 +275,9 @@
         .resource-team .resource-value { color: #ffd700; }
 
         @media (max-width: 900px) {
-            .character-info-panel { width: 300px; }
             .placement-card { width: 120px; height: 170px; }
         }
         @media (max-width: 700px) {
-            .game-main-area { flex-direction: column; }
-            .character-info-panel { width: 100%; height: auto; max-height: 40vh; }
             .placement-card { width: 100px; height: 140px; }
             .placement-avatar { width: 50px; height: 50px; font-size: 1.5em; }
         }
@@ -264,6 +301,20 @@
         <div id="targetOverlay" class="target-overlay hidden">
             <h3>選擇目標</h3>
             <div class="target-cards" id="targetCards"></div>
+        </div>
+
+        <div id="charDetailPopup" class="char-detail-popup hidden">
+            <div class="char-detail-content">
+                <button class="close-popup" onclick="game.closeCharDetail()">✕</button>
+                <div class="char-detail-header">
+                    <div class="char-detail-name" id="detailCharName">--</div>
+                    <div class="char-detail-title" id="detailCharTitle">--</div>
+                    <div class="char-detail-attrs" id="detailCharAttrs"></div>
+                </div>
+                <div class="char-detail-stats" id="detailCharStats"></div>
+                <div class="char-detail-skills" id="detailCharSkills"></div>
+                <div class="char-detail-talents" id="detailCharTalents"></div>
+            </div>
         </div>
 
         <div id="victoryScreen" class="victory-screen hidden">
@@ -346,24 +397,7 @@
 
             <!-- Main Game Area -->
             <div class="game-main-area">
-                <!-- Left Panel: Character Info & Skills -->
-                <div class="character-info-panel" id="characterPanel">
-                    <div class="panel-header">
-                        <div class="current-char-name" id="panelCharName">--</div>
-                        <div class="current-char-title" id="panelCharTitle">--</div>
-                    </div>
-                    <div class="panel-stats" id="panelStats">
-                        <!-- Stats bars will be inserted here -->
-                    </div>
-                    <div class="panel-skills" id="panelSkills">
-                        <!-- Skills will be inserted here -->
-                    </div>
-                    <div class="panel-talents" id="panelTalents">
-                        <!-- Talents will be inserted here -->
-                    </div>
-                </div>
-
-                <!-- Right Area: Character Cards Grid -->
+                <!-- Character Cards Grid (Full Width) -->
                 <div class="character-cards-area">
                     <!-- Enemy Team (Top) -->
                     <div class="cards-row enemy-row" id="enemyCardsRow">
@@ -507,8 +541,7 @@
                         team: char.team, pos: char.pos,
                         hp: char.hp, mental: char.mental, energy: char.energy,
                         action: char.action, dead: char.dead,
-                        buffs: char.buffs, hasActedThisRound: char.hasActedThisRound,
-                        inviteCount: char.inviteCount || 0, inviteChance: char.inviteChance || 2,
+                        buffs: char.buffs, inviteCount: char.inviteCount || 0, inviteChance: char.inviteChance || 2,
                         pinchStacks: char.pinchStacks || {}, monkeyJumpStacks: char.monkeyJumpStacks || {}
                     }))),
                     currentTeam: this.currentTeam, currentActor: this.currentActor ? { team: this.currentActor.team, pos: this.currentActor.pos } : null,
@@ -535,7 +568,6 @@
                         hp: savedChar.hp, mental: savedChar.mental,
                         energy: savedChar.energy, action: savedChar.action,
                         dead: savedChar.dead, buffs: savedChar.buffs || [],
-                        hasActedThisRound: savedChar.hasActedThisRound || false,
                         inviteCount: savedChar.inviteCount || 0, inviteChance: savedChar.inviteChance || 2,
                         pinchStacks: savedChar.pinchStacks || {}, monkeyJumpStacks: savedChar.monkeyJumpStacks || {}
                     };
@@ -611,7 +643,6 @@
                             action: template.agility,
                             dead: false,
                             buffs: [],
-                            hasActedThisRound: false,
                             inviteCount: 0,
                             inviteChance: 2,
                             pinchStacks: {},
@@ -659,7 +690,6 @@
                 this.teams.forEach(team => {
                     team.forEach(char => {
                         if (!char.dead) {
-                            char.hasActedThisRound = false;
                             // Do NOT reset action points here - they carry over (Article 2.4.1)
                             // Only reset when the character actually gets a turn
                             char.energy = Math.min(10, char.energy + 1);
@@ -681,18 +711,47 @@
             }
 
             findNextActor() {
-                // Find all characters who haven't acted this round
-                let activeChars = [];
+                // Find all characters who can act (not dead and have action <= 0)
+                let readyChars = [];
                 this.teams.forEach((team, teamIdx) => {
                     team.forEach((char, charIdx) => {
-                        if (!char.dead && !char.hasActedThisRound) {
-                            activeChars.push({ char, team: teamIdx, pos: charIdx });
-                            this.log('調試: ' + char.name + ' action=' + char.action + ' agility=' + char.agility, 'system');
+                        if (!char.dead && char.action <= 0) {
+                            readyChars.push({ char, team: teamIdx, pos: charIdx, agility: char.agility });
                         }
                     });
                 });
 
-                // If no active characters, end round
+                // If there are characters ready to act, let them act
+                if (readyChars.length > 0) {
+                    // Sort by agility (lowest first) - Article 2.4.2
+                    readyChars.sort((a, b) => a.agility - b.agility);
+                    const nextActor = readyChars[0];
+
+                    this.currentTeam = nextActor.team;
+                    this.currentActor = nextActor.char;
+
+                    if (readyChars.length > 1) {
+                        this.log(readyChars.length + ' 個角色同時獲得行動機會，敏捷最低者 (' + nextActor.char.agility + ') 優先: ' + nextActor.char.name, 'system');
+                    }
+
+                    document.getElementById('actorName').textContent = nextActor.char.name;
+                    document.getElementById('actorPrompt').classList.remove('hidden');
+                    this.updateDisplay();
+                    return;
+                }
+
+                // No one ready to act - need to consume round points
+                // Find all living characters to calculate min action
+                let activeChars = [];
+                this.teams.forEach((team, teamIdx) => {
+                    team.forEach((char, charIdx) => {
+                        if (!char.dead) {
+                            activeChars.push({ char, team: teamIdx, pos: charIdx });
+                        }
+                    });
+                });
+
+                // If no living characters, end round
                 if (activeChars.length === 0) {
                     this.endRound();
                     return;
@@ -703,10 +762,7 @@
                 const minAction = activeChars[0].char.action;
                 const lowestChar = activeChars[0].char;
 
-                this.log('調試: 最低行動點=' + minAction + ' (' + lowestChar.name + ')', 'system');
-
                 // Check if round points are sufficient (Article 2.3.2)
-                // If remaining round points can't allow any character to act, carry over
                 if (this.roundPoints < minAction) {
                     this.log('回合點 (' + this.roundPoints + ') 不足以讓任何角色行動，結束回合並將剩餘回合點加至下一回合', 'system');
                     this.endRound();
@@ -720,27 +776,32 @@
                 // Subtract from all characters' action points
                 this.teams.forEach(team => {
                     team.forEach(char => {
-                        if (!char.dead && !char.hasActedThisRound) {
+                        if (!char.dead) {
                             char.action -= minAction;
                         }
                     });
                 });
 
-                // Find all characters whose action points reached 0
-                let readyChars = [];
+                // Now find characters whose action points reached 0
+                readyChars = [];
                 this.teams.forEach((team, teamIdx) => {
                     team.forEach((char, charIdx) => {
-                        if (!char.dead && !char.hasActedThisRound && char.action <= 0) {
+                        if (!char.dead && char.action <= 0) {
                             readyChars.push({ char, team: teamIdx, pos: charIdx, agility: char.agility });
                         }
                     });
                 });
 
+                if (readyChars.length === 0) {
+                    // This shouldn't happen, but just in case
+                    this.findNextActor();
+                    return;
+                }
+
                 // Sort by agility (lowest first) - Article 2.4.2
                 readyChars.sort((a, b) => a.agility - b.agility);
 
                 const nextActor = readyChars[0];
-
                 this.currentTeam = nextActor.team;
                 this.currentActor = nextActor.char;
 
@@ -761,7 +822,7 @@
                 const hasRyanOnEnemyTeam = this.teams[enemyTeam].some(c => c.id === 'ryan' && !c.dead);
                 if (hasRyanOnEnemyTeam && Math.random() * 100 < 5) {
                     this.log('【耍賴】觸發！' + this.currentActor.name + ' 的行動無效！', 'skill');
-                    this.currentActor.hasActedThisRound = true;
+                    // Reset action points even if nullified
                     this.currentActor.action = this.currentActor.agility <= 3 ? this.currentActor.agility + 1 : this.currentActor.agility;
                     this.findNextActor();
                     return;
@@ -774,54 +835,6 @@
             updateDisplay() {
                 const myTeam = this.currentTeam;
                 const enemyTeam = myTeam === 0 ? 1 : 0;
-                const myChar = this.currentActor;
-
-                // Update left panel with current actor info
-                if (myChar && !myChar.dead) {
-                    const canSkill = this.skillPoints[myTeam] >= 2;
-                    const canUlt = myChar.energy >= 5;
-
-                    document.getElementById('panelCharName').textContent = myChar.name;
-                    document.getElementById('panelCharTitle').textContent = '「' + myChar.title + '」';
-
-                    // Stats bars - show 敏捷 (agility) to player
-                    const actionPercent = myChar.action <= 0 ? 100 : (1 - (myChar.action / myChar.agility)) * 100;
-                    const statsHtml =
-                        '<div class="panel-stat-row"><span class="panel-stat-icon">❤️</span><div class="panel-stat-bar-bg"><div class="panel-stat-bar-fill panel-hp-fill" style="width:' + ((myChar.hp/myChar.maxHp)*100) + '%"></div><span class="panel-stat-text">' + myChar.hp + '/' + myChar.maxHp + '</span></div></div>' +
-                        '<div class="panel-stat-row"><span class="panel-stat-icon">🧠</span><div class="panel-stat-bar-bg"><div class="panel-stat-bar-fill panel-mental-fill" style="width:' + ((myChar.mental/myChar.maxMental)*100) + '%"></div><span class="panel-stat-text">' + myChar.mental + '/' + myChar.maxMental + '</span></div></div>' +
-                        '<div class="panel-stat-row"><span class="panel-stat-icon">⚡</span><div class="panel-stat-bar-bg"><div class="panel-stat-bar-fill panel-energy-fill" style="width:' + ((myChar.energy/10)*100) + '%"></div><span class="panel-stat-text">' + myChar.energy + '/10</span></div></div>' +
-                        '<div class="panel-stat-row"><span class="panel-stat-icon">🏃</span><div class="panel-stat-bar-bg"><div class="panel-stat-bar-fill panel-action-fill" style="width:' + actionPercent + '%"></div><span class="panel-stat-text">敏捷: ' + myChar.agility + (myChar.action > 0 ? ' (-' + myChar.action + ')' : ' 就緒') + '</span></div></div>';
-                    document.getElementById('panelStats').innerHTML = statsHtml;
-
-                    // Skills
-                    let skillsHtml = '';
-                    skillsHtml += '<button class="panel-skill-btn basic" onclick="game.useSkill(\'basic\')">';
-                    skillsHtml += '<div class="panel-skill-name">⚔️ ' + myChar.skills.basic.name + '</div>';
-                    skillsHtml += '<div class="panel-skill-desc">' + myChar.skills.basic.desc + '</div>';
-                    skillsHtml += '<span class="panel-skill-cost">回復1能量 +1戰技點</span></button>';
-
-                    skillsHtml += '<button class="panel-skill-btn skill" onclick="game.useSkill(\'skill\')"' + (canSkill ? '' : ' disabled') + '>';
-                    skillsHtml += '<div class="panel-skill-name">🔹 ' + myChar.skills.skill.name + '</div>';
-                    skillsHtml += '<div class="panel-skill-desc">' + myChar.skills.skill.desc + '</div>';
-                    skillsHtml += '<span class="panel-skill-cost">消耗2戰技點 回復2能量</span></button>';
-
-                    skillsHtml += '<button class="panel-skill-btn ultimate" onclick="game.useSkill(\'ultimate\')"' + (canUlt ? '' : ' disabled') + '>';
-                    skillsHtml += '<div class="panel-skill-name">🔴 ' + myChar.skills.ultimate.name + '</div>';
-                    skillsHtml += '<div class="panel-skill-desc">' + myChar.skills.ultimate.desc + '</div>';
-                    skillsHtml += '<span class="panel-skill-cost">消耗5能量</span></button>';
-                    document.getElementById('panelSkills').innerHTML = skillsHtml;
-
-                    // Talents
-                    const talentsHtml = '<div class="panel-talents-title">天賦</div>' +
-                        myChar.talents.map(t => '<span class="talent-tag">' + t + '</span>').join('');
-                    document.getElementById('panelTalents').innerHTML = talentsHtml;
-                } else {
-                    document.getElementById('panelCharName').textContent = '--';
-                    document.getElementById('panelCharTitle').textContent = '等待行動...';
-                    document.getElementById('panelStats').innerHTML = '';
-                    document.getElementById('panelSkills').innerHTML = '';
-                    document.getElementById('panelTalents').innerHTML = '';
-                }
 
                 // Render character cards
                 this.renderCharacterCards();
@@ -853,13 +866,13 @@
 
             createPlacementCard(char, pos, team) {
                 const isCurrentActor = this.currentActor && char.team === this.currentActor.team && char.pos === this.currentActor.pos;
-                const isReady = !char.dead && !char.hasActedThisRound && char.action <= 0;
+                const isReady = !char.dead && char.action <= 0;
                 const avatar = char.isMale ? '👤' : '👩';
 
                 let statusBadge = '';
                 if (char.dead) statusBadge = '<div class="placement-status">陣亡</div>';
                 else if (isCurrentActor) statusBadge = '<div class="placement-status" style="background:#2ecc71;color:#fff;">行動中</div>';
-                else if (char.hasActedThisRound) statusBadge = '<div class="placement-status acted">已行動</div>';
+                else if (char.action <= 0) statusBadge = '<div class="placement-status" style="background:#3498db;color:#fff;">就緒</div>';
 
                 return '<div class="placement-card ' + (isCurrentActor ? 'active-turn' : '') + (char.dead ? ' dead' : '') + '" ' +
                     (char.dead ? '' : 'onclick="game.selectTarget(' + team + ',' + pos + ')"') + '>' +
@@ -927,6 +940,88 @@
                 }
             }
 
+            showCharDetail(team, pos) {
+                const char = this.teams[team][pos];
+                const isCurrentActor = this.currentActor && char.team === this.currentActor.team && char.pos === this.currentActor.pos;
+                const canAct = isCurrentActor && char.action <= 0 && !char.dead;
+                const myTeam = this.currentTeam;
+                const canSkill = this.skillPoints[myTeam] >= 2;
+                const canUlt = char.energy >= 5;
+
+                // Header
+                document.getElementById('detailCharName').textContent = char.name;
+                document.getElementById('detailCharTitle').textContent = '「' + char.title + '」';
+                document.getElementById('detailCharAttrs').innerHTML = char.attributes.map(a => '<span class="char-detail-attr">' + a + '</span>').join('');
+
+                // Stats
+                const actionPercent = char.action <= 0 ? 100 : (1 - (char.action / char.agility)) * 100;
+                const isVulnerable = char.mental >= char.maxMental;
+                const mentalBarClass = isVulnerable ? 'detail-mental-fill vulnerable' : 'detail-mental-fill';
+                const mentalText = isVulnerable ? char.mental + '/' + char.maxMental + ' 易傷!' : char.mental + '/' + char.maxMental;
+                const mentalIcon = isVulnerable ? '💥' : '🧠';
+
+                const statsHtml =
+                    '<div class="detail-stat-row"><span class="detail-stat-icon">❤️</span><div class="detail-stat-bar-bg"><div class="detail-stat-bar-fill detail-hp-fill" style="width:' + ((char.hp/char.maxHp)*100) + '%"></div><span class="detail-stat-text">' + char.hp + '/' + char.maxHp + '</span></div></div>' +
+                    '<div class="detail-stat-row"><span class="detail-stat-icon">' + mentalIcon + '</span><div class="detail-stat-bar-bg"><div class="detail-stat-bar-fill ' + mentalBarClass + '" style="width:' + ((char.mental/char.maxMental)*100) + '%"></div><span class="detail-stat-text"' + (isVulnerable ? ' style="color:#ff6b6b;font-weight:bold;"' : '') + '>' + mentalText + '</span></div></div>' +
+                    '<div class="detail-stat-row"><span class="detail-stat-icon">⚡</span><div class="detail-stat-bar-bg"><div class="detail-stat-bar-fill detail-energy-fill" style="width:' + ((char.energy/10)*100) + '%"></div><span class="detail-stat-text">' + char.energy + '/10</span></div></div>' +
+                    '<div class="detail-stat-row"><span class="detail-stat-icon">🏃</span><div class="detail-stat-bar-bg"><div class="detail-stat-bar-fill detail-action-fill" style="width:' + actionPercent + '%"></div><span class="detail-stat-text">敏捷: ' + char.agility + (char.action > 0 ? ' (-' + char.action + ')' : ' 就緒') + '</span></div></div>';
+                document.getElementById('detailCharStats').innerHTML = statsHtml;
+
+                // Skills
+                let skillsHtml = '';
+
+                // Basic skill
+                skillsHtml += '<div class="char-detail-skill basic">';
+                skillsHtml += '<div class="char-detail-skill-name">⚔️ ' + char.skills.basic.name + '</div>';
+                skillsHtml += '<div class="char-detail-skill-desc">' + char.skills.basic.desc + '</div>';
+                skillsHtml += '<div class="char-detail-skill-cost">回復1能量 +1戰技點</div>';
+                if (canAct) {
+                    skillsHtml += '<button class="skill-use-btn basic" onclick="game.useSkillFromPopup(\'basic\')">使用</button>';
+                }
+                skillsHtml += '</div>';
+
+                // Skill
+                skillsHtml += '<div class="char-detail-skill skill">';
+                skillsHtml += '<div class="char-detail-skill-name">🔹 ' + char.skills.skill.name + '</div>';
+                skillsHtml += '<div class="char-detail-skill-desc">' + char.skills.skill.desc + '</div>';
+                skillsHtml += '<div class="char-detail-skill-cost">消耗2戰技點 回復2能量</div>';
+                if (canAct) {
+                    const disabled = canSkill ? '' : 'disabled';
+                    skillsHtml += '<button class="skill-use-btn skill" onclick="game.useSkillFromPopup(\'skill\')" ' + disabled + '>使用' + (canSkill ? '' : ' (戰技點不足)') + '</button>';
+                }
+                skillsHtml += '</div>';
+
+                // Ultimate
+                skillsHtml += '<div class="char-detail-skill ultimate">';
+                skillsHtml += '<div class="char-detail-skill-name">🔴 ' + char.skills.ultimate.name + '</div>';
+                skillsHtml += '<div class="char-detail-skill-desc">' + char.skills.ultimate.desc + '</div>';
+                skillsHtml += '<div class="char-detail-skill-cost">消耗5能量</div>';
+                if (canAct) {
+                    const disabled = canUlt ? '' : 'disabled';
+                    skillsHtml += '<button class="skill-use-btn ultimate" onclick="game.useSkillFromPopup(\'ultimate\')" ' + disabled + '>使用' + (canUlt ? '' : ' (能量不足)') + '</button>';
+                }
+                skillsHtml += '</div>';
+
+                document.getElementById('detailCharSkills').innerHTML = skillsHtml;
+
+                // Talents
+                const talentsHtml = '<div class="char-detail-talents-title">天賦</div>' +
+                    char.talents.map(t => '<span class="talent-tag">' + t + '</span>').join('');
+                document.getElementById('detailCharTalents').innerHTML = talentsHtml;
+
+                // Show popup
+                document.getElementById('charDetailPopup').classList.remove('hidden');
+            }
+
+            closeCharDetail() {
+                document.getElementById('charDetailPopup').classList.add('hidden');
+            }
+
+            useSkillFromPopup(type) {
+                this.closeCharDetail();
+                this.useSkill(type);
+            }
+
             renderCharacterCards() {
                 const enemyTeam = this.currentTeam === 0 ? 1 : 0;
                 const myTeam = this.currentTeam;
@@ -940,16 +1035,17 @@
 
             createPlacementCard(char, pos, team) {
                 const isCurrentActor = this.currentActor && char.team === this.currentActor.team && char.pos === this.currentActor.pos;
-                const isReady = !char.dead && !char.hasActedThisRound && char.action <= 0;
+                const isReady = !char.dead && char.action <= 0;
                 const isEnemy = team !== this.currentTeam;
                 const isSelectable = this.targetSelectionMode && isEnemy && !char.dead && !char.buffs.some(b => b.type === 'untargetable');
                 const avatar = char.isMale ? '👤' : '👩';
+                const isVulnerable = char.mental >= char.maxMental;
 
                 let statusBadge = '';
                 if (char.dead) statusBadge = '<div class="placement-status">陣亡</div>';
+                else if (isVulnerable) statusBadge = '<div class="placement-status" style="background:#ff4757;color:#fff;">易傷</div>';
                 else if (isCurrentActor) statusBadge = '<div class="placement-status" style="background:#2ecc71;color:#fff;">行動中</div>';
-                else if (char.hasActedThisRound) statusBadge = '<div class="placement-status acted">已行動</div>';
-                else if (isReady) statusBadge = '<div class="placement-status" style="background:#3498db;color:#fff;">就緒</div>';
+                else if (char.action <= 0) statusBadge = '<div class="placement-status" style="background:#3498db;color:#fff;">就緒</div>';
 
                 let cardClass = 'placement-card';
                 if (isCurrentActor) cardClass += ' active-turn';
@@ -957,7 +1053,13 @@
                 if (isSelectable) cardClass += ' selected';
                 if (isReady && !isCurrentActor) cardClass += ' ready';
 
-                const onclickAttr = isSelectable ? 'onclick="game.selectTarget(' + team + ',' + pos + ')"' : '';
+                // If in target selection mode, clicking selects target; otherwise shows character details
+                const onclickAttr = isSelectable
+                    ? 'onclick="game.selectTarget(' + team + ',' + pos + ')"'
+                    : 'onclick="game.showCharDetail(' + team + ',' + pos + ')"';
+
+                const mentalPercent = (char.mental/char.maxMental)*100;
+                const mentalFillClass = char.mental >= char.maxMental ? 'placement-mental-fill vulnerable' : 'placement-mental-fill';
 
                 return '<div class="' + cardClass + '" ' + onclickAttr + '>' +
                     statusBadge +
@@ -966,7 +1068,7 @@
                     '<div class="placement-title">' + char.title + '</div>' +
                     '<div class="placement-bars">' +
                     '<div class="placement-bar-bg"><div class="placement-hp-fill" style="width:' + ((char.hp/char.maxHp)*100) + '%"></div></div>' +
-                    '<div class="placement-bar-bg"><div class="placement-mental-fill" style="width:' + ((char.mental/char.maxMental)*100) + '%"></div></div>' +
+                    '<div class="placement-bar-bg"><div class="' + mentalFillClass + '" style="width:' + mentalPercent + '%"></div></div>' +
                     '</div>' +
                     '</div>';
             }
@@ -996,7 +1098,6 @@
                 }
 
                 this.processSkillEffect(char, type, target, enemyTeam);
-                char.hasActedThisRound = true;
                 // Reset action points to agility after acting (Article 2.4.1)
                 // +1 bonus if agility <= 3 (Article 2.4.3)
                 char.action = char.agility <= 3 ? char.agility + 1 : char.agility;
