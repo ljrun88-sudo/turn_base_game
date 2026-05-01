@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校園對決 - 角色卡牌戰鬥</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; font-family: "Microsoft JhengHei", sans-serif; background: linear-gradient(135deg, #1a0f2e 0%, #0d0618 50%, #1a0f2e 100%); color: #d4c4e0; overflow: hidden; }
+
+        /* Ancient stone texture overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image:
+                radial-gradient(circle at 20% 50%, rgba(88, 28, 135, 0.4) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(45, 15, 80, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(60, 20, 100, 0.2) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .game-container { width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; z-index: 1; }
+
+        .top-section { background: rgba(0,0,0,0.4); padding: 10px 20px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .game-title { font-size: clamp(1.2em, 3vw, 1.8em); color: #ffd700; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        .game-info { display: flex; gap: 15px; flex-wrap: wrap; }
+        .info-item { background: linear-gradient(145deg, #2d1b4e, #1a0f2e); padding: 6px 15px; border-radius: 4px; font-size: clamp(0.8em, 2vw, 0.95em); border: 2px ridge #4a3f5c; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); color: #b8a0d0; }
+        .day { color: #d4a0d0; text-shadow: 0 0 5px rgba(212, 160, 208, 0.5); }
+        .night { color: #7a90c0; text-shadow: 0 0 5px rgba(122, 144, 192, 0.5); }
+        .current-player { background: linear-gradient(145deg, #3d2f5d, #251a3a) !important; border-color: #6a4c8a !important; color: #c4b0e0; font-weight: bold; box-shadow: 0 0 15px rgba(138, 43, 226, 0.3) !important; }
+
+        /* Stone-like border style */
+        .stone-border { border: 3px solid #4a3f5c; border-style: ridge; box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 15px rgba(88, 28, 135, 0.3); }
+
+        /* Eye-catching Round Points Display - Abyss Style */
+        .round-points-display {
+            background: linear-gradient(145deg, #2d1b4e, #1a0f2e) !important;
+            border: 3px ridge #6b4c8a;
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.4), inset 0 0 15px rgba(0,0,0,0.5);
+            padding: 8px 20px !important;
+            font-size: 1.1em !important;
+            color: #b8a0d0;
+        }
+        .round-points-display span {
+            color: #9d7ed8;
+            font-size: 1.4em;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(157, 126, 216, 0.6);
+        }
+
+        /* Action Points Badge on Character Cards - Ancient Stone Style */
+        .action-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.75em;
+            border: 2px ridge;
+            z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+        }
+        .action-badge.ready {
+            background: linear-gradient(145deg, #3a5a3a, #2a3a2a);
+            border-color: #4a7a4a;
+            color: #c0e0c0;
+            box-shadow: 0 0 10px rgba(60, 140, 60, 0.3);
+        }
+        .action-badge.waiting {
+            background: linear-gradient(145deg, #5a3a3a, #3a2a2a);
+            border-color: #7a4a4a;
+            color: #e0c0c0;
+        }
+        .action-badge.acting {
+            background: linear-gradient(145deg, #6a5a3a, #4a3a1a);
+            border-color: #8a7a4a;
+            color: #f0e0b0;
+            box-shadow: 0 0 15px rgba(180, 160, 60, 0.4);
+        }
+        @keyframes pulse-badge {
+            0%, 100% { transform: scale(1); box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+            50% { transform: scale(1.1); box-shadow: 0 3px 10px rgba(157, 126, 216, 0.4); }
+        }
+
+        .log-entry { font-size: 0.8em; padding: 2px 5px; border-radius: 3px; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .log-entry.damage { background: rgba(140, 60, 80, 0.2); color: #c07080; }
+        .log-entry.heal { background: rgba(60, 140, 80, 0.2); color: #70c090; }
+        .log-entry.skill { background: rgba(60, 80, 140, 0.2); color: #7090b0; }
+        .log-entry.system { background: rgba(157, 126, 216, 0.15); color: #b8a0d0; }
+        .log-entry.important { background: rgba(157, 126, 216, 0.3); color: #d4c4e0; font-weight: bold; }
+
+        .main-character-card { width: min(360px, 92vw); max-height: 100%; background: linear-gradient(145deg, #2c3e50, #1a252f); border-radius: 15px; padding: clamp(12px, 2.5vw, 20px); border: 3px solid; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
+        .player-zone .main-character-card { border-color: #2ecc71; box-shadow: 0 5px 30px rgba(46, 204, 113, 0.3); }
+        .opponent-zone .main-character-card { border-color: #e74c3c; box-shadow: 0 -5px 30px rgba(231, 76, 60, 0.3); }
+        .main-character-card.hidden-card { background: linear-gradient(145deg, #1a1a2e, #0f0f1a); border-color: #666; align-items: center; justify-content: center; min-height: 200px; overflow: hidden; }
+
+        .card-back { text-align: center; padding: 20px; }
+        .card-back-icon { font-size: clamp(3em, 8vw, 5em); color: #ffd700; margin-bottom: 15px; opacity: 0.7; }
+        .card-back-text { font-size: clamp(1.2em, 3vw, 1.5em); color: #666; font-weight: bold; }
+        .card-back-hint { font-size: clamp(0.8em, 2vw, 0.9em); color: #888; margin-top: 10px; }
+
+        .char-header { text-align: center; }
+        .char-name { font-size: clamp(1.3em, 3vw, 1.8em); font-weight: bold; color: #ffd700; }
+        .char-title { font-size: clamp(0.85em, 2vw, 1em); color: #aaa; }
+        .char-attributes { display: flex; gap: 8px; justify-content: center; margin-top: 5px; flex-wrap: wrap; }
+        .attribute-tag { background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 8px; font-size: clamp(0.7em, 1.5vw, 0.8em); color: #ddd; }
+
+        .stat-bars { display: flex; flex-direction: column; gap: 8px; }
+        .stat-row { display: flex; align-items: center; gap: 8px; }
+        .stat-icon { font-size: clamp(1em, 2vw, 1.2em); width: 20px; text-align: center; }
+        .stat-bar-container { flex: 1; height: clamp(16px, 3vw, 20px); background: rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden; position: relative; }
+        .stat-bar-fill { height: 100%; border-radius: 8px; transition: width 0.3s; }
+        .hp-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+        .mental-fill { background: linear-gradient(90deg, #9b59b6, #8e44ad); }
+        .energy-fill { background: linear-gradient(90deg, #3498db, #2980b9); }
+        .action-fill { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        .stat-text { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: clamp(0.65em, 1.5vw, 0.75em); font-weight: bold; }
+
+        .skills-area { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
+        .skill-btn { padding: clamp(10px, 2vw, 14px); border: none; border-radius: 8px; cursor: pointer; text-align: left; transition: all 0.2s; width: 100%; display: flex; flex-direction: column; }
+        .skill-btn:hover:not(:disabled) { transform: translateX(3px); filter: brightness(1.1); }
+        .skill-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .skill-btn.basic { background: linear-gradient(90deg, #27ae60, #2ecc71); color: white; border-left: 4px solid #1e8449; }
+        .skill-btn.skill { background: linear-gradient(90deg, #2980b9, #3498db); color: white; border-left: 4px solid #1f618d; }
+        .skill-btn.ultimate { background: linear-gradient(90deg, #c0392b, #e74c3c); color: white; border-left: 4px solid #922b21; }
+        .skill-btn-content { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; width: 100%; }
+        .skill-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .skill-name { font-weight: bold; font-size: clamp(0.95em, 2vw, 1.1em); margin-bottom: 4px; white-space: nowrap; }
+        .skill-desc { font-size: clamp(0.75em, 1.8vw, 0.85em); opacity: 0.9; line-height: 1.4; word-break: break-all; overflow-wrap: break-word; white-space: normal; }
+        .skill-cost-tag { background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 10px; font-size: clamp(0.65em, 1.4vw, 0.75em); white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+
+        .team-sidebar { position: absolute; top: 50%; transform: translateY(-50%); width: clamp(130px, 16vw, 170px); display: flex; flex-direction: column; gap: 8px; }
+        .team-sidebar.left { left: 10px; } .team-sidebar.right { right: 10px; }
+        .team-label { text-align: center; font-size: clamp(0.85em, 2vw, 1em); padding: 6px; border-radius: 6px; margin-bottom: 3px; }
+        .team-sidebar.left .team-label { background: rgba(231, 76, 60, 0.3); color: #e74c3c; }
+        .team-sidebar.right .team-label { background: rgba(52, 152, 219, 0.3); color: #3498db; }
+
+        .mini-card { background: rgba(255,255,255,0.1); border-radius: 8px; padding: clamp(6px, 1.5vw, 10px); border: 2px solid transparent; }
+        .mini-card.active { border-color: #ffd700; background: rgba(255,215,0,0.2); }
+        .mini-card.dead { opacity: 0.3; filter: grayscale(100%); }
+        .mini-card.ready { border-color: #2ecc71; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 5px rgba(46,204,113,0.3); } 50% { box-shadow: 0 0 15px rgba(46,204,113,0.6); } }
+        .mini-name { font-weight: bold; font-size: clamp(0.8em, 1.8vw, 0.9em); margin-bottom: 4px; }
+        .mini-bar { height: 5px; background: rgba(0,0,0,0.3); border-radius: 3px; margin-bottom: 3px; overflow: hidden; }
+        .mini-hp-fill { height: 100%; background: #e74c3c; border-radius: 3px; }
+        .mini-mental-fill { height: 100%; background: #9b59b6; border-radius: 3px; }
+        .mini-action { font-size: clamp(0.7em, 1.5vw, 0.8em); color: #888; text-align: center; margin-top: 3px; }
+        .mini-action.ready { color: #2ecc71; font-weight: bold; }
+
+        .resource-box { background: rgba(0,0,0,0.4); padding: 8px 10px; border-radius: 8px; text-align: center; }
+        .resource-label { font-size: 0.7em; color: #aaa; }
+        .resource-value { font-size: 1.2em; font-weight: bold; color: #ffd700; }
+
+        .setup-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 6, 24, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
+        .setup-title { font-size: clamp(1.8em, 5vw, 2.5em); color: #9d7ed8; margin-bottom: 20px; text-shadow: 0 0 15px rgba(157, 126, 216, 0.4); }
+        .setup-instruction { font-size: clamp(1em, 3vw, 1.2em); color: #7a6a8a; margin-bottom: 20px; }
+        .character-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; max-width: 850px; width: 100%; margin-bottom: 25px; }
+        .select-card { background: linear-gradient(145deg, #2d1b4e, #1a0f2e); border-radius: 8px; padding: 15px; cursor: pointer; border: 3px ridge #4a3f5c; transition: all 0.3s; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.4), inset 0 0 20px rgba(88, 28, 135, 0.2); }
+        .select-card:hover { border-color: #6a5a8a; transform: translateY(-3px); box-shadow: 0 8px 25px rgba(138, 43, 226, 0.3); }
+        .select-card.selected-p1 { border-color: #8a4a5a; box-shadow: 0 0 20px rgba(180, 60, 80, 0.4); }
+        .select-card.selected-p2 { border-color: #4a6a8a; box-shadow: 0 0 20px rgba(60, 100, 180, 0.4); }
+        .select-name { font-size: 1.2em; font-weight: bold; color: #9d7ed8; margin-bottom: 4px; }
+        .select-title { color: #7a6a8a; font-size: 0.85em; margin-bottom: 8px; }
+        .select-attr { font-size: 0.75em; color: #5a4a6a; }
+        .setup-btn { font-size: 1.1em; padding: 12px 40px; background: linear-gradient(145deg, #3d2f4d, #251a30); color: #d4c4e0; border: 3px ridge #5a4a6a; border-radius: 4px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.4); transition: all 0.3s; text-shadow: 0 0 5px rgba(157, 126, 216, 0.3); }
+        .setup-btn:hover:not(:disabled) { background: linear-gradient(145deg, #4d3f5d, #352a40); border-color: #7a6a8a; box-shadow: 0 0 20px rgba(138, 43, 226, 0.3); }
+        .setup-btn:disabled { background: #2a2a3a; color: #5a5a6a; border-color: #3a3a4a; cursor: not-allowed; }
+
+        .actor-prompt { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(145deg, #1a0f2e, #0d0618); padding: 30px 50px; border-radius: 8px; text-align: center; z-index: 100; border: 4px ridge #4a3f5c; box-shadow: 0 0 50px rgba(138, 43, 226, 0.4), inset 0 0 30px rgba(88, 28, 135, 0.2); animation: fadeIn 0.3s; }
+        .actor-prompt h3 { font-size: 1.5em; margin-bottom: 15px; color: #9d7ed8; text-shadow: 0 0 10px rgba(157, 126, 216, 0.5); }
+        .actor-prompt p { color: #8a7ab0; font-size: 1.1em; }
+
+        /* Turn Transition Overlay - Abyss Style */
+        .turn-transition { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 6, 24, 0.9); display: flex; justify-content: center; align-items: center; z-index: 150; backdrop-filter: blur(5px); animation: fadeIn 0.3s; }
+        .turn-transition.hidden { display: none !important; }
+        .transition-content { background: linear-gradient(145deg, #1a0f2e, #0d0618); padding: 40px 60px; border-radius: 8px; text-align: center; border: 4px ridge #4a3f5c; box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(138, 43, 226, 0.3), inset 0 0 30px rgba(88, 28, 135, 0.2); animation: slideUp 0.4s ease-out; }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .transition-label { font-size: 1.2em; color: #6a5a7a; margin-bottom: 20px; letter-spacing: 3px; }
+        .transition-avatar { font-size: 4em; margin-bottom: 15px; animation: bounce 1s infinite; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .transition-name { font-size: 2em; color: #9d7ed8; font-weight: bold; margin-bottom: 8px; text-shadow: 0 0 15px rgba(157, 126, 216, 0.5); }
+        .transition-title { font-size: 1.1em; color: #7a6a8a; margin-bottom: 15px; }
+        .transition-team { font-size: 1em; padding: 8px 20px; border-radius: 4px; display: inline-block; border: 2px ridge; }
+        .transition-team.team1 { background: rgba(140, 60, 80, 0.2); color: #b07080; border: 2px ridge #8a4a5a; }
+        .transition-team.team2 { background: rgba(60, 80, 140, 0.2); color: #7090b0; border: 2px ridge #4a5a8a; }
+
+        .target-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 6, 24, 0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 500; backdrop-filter: blur(3px); }
+        .target-overlay h3 { font-size: clamp(1.3em, 4vw, 1.5em); margin-bottom: 20px; color: #9d7ed8; text-shadow: 0 0 15px rgba(157, 126, 216, 0.4); }
+        .target-cards { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; padding: 20px; }
+        .target-card { background: linear-gradient(145deg, #1a0f2e, #0d0618); border-radius: 8px; padding: 20px 30px; cursor: pointer; border: 3px ridge #8a4a5a; transition: all 0.2s; text-align: center; min-width: 120px; }
+        .target-card:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(180, 60, 80, 0.4); border-color: #aa5a6a; }
+
+        .victory-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 6, 24, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; }
+        .victory-text { font-size: clamp(2.5em, 8vw, 4em); margin-bottom: 25px; text-shadow: 0 0 30px rgba(157, 126, 216, 0.5); }
+        .victory-p1 { color: #b07080; text-shadow: 0 0 20px rgba(180, 60, 80, 0.4); }
+        .victory-p2 { color: #7090b0; text-shadow: 0 0 20px rgba(60, 100, 180, 0.4); }
+        .restart-btn { font-size: 1.1em; padding: 12px 35px; background: linear-gradient(145deg, #2d1b4e, #1a0f2e); color: #d4c4e0; border: 3px ridge #4a3f5c; border-radius: 4px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.4), inset 0 0 20px rgba(88, 28, 135, 0.2); }
+        .restart-btn:hover { border-color: #6a5a8a; box-shadow: 0 0 25px rgba(138, 43, 226, 0.3); }
+
+        .main-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #0d0618 0%, #1a0f2e 50%, #0d0618 100%); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; }
+        .main-menu::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image:
+                radial-gradient(circle at 30% 30%, rgba(88, 28, 135, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 70% 70%, rgba(45, 15, 80, 0.2) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .menu-title { font-size: clamp(3em, 10vw, 5em); color: #9d7ed8; text-shadow: 0 0 30px rgba(157, 126, 216, 0.5), 0 0 60px rgba(138, 43, 226, 0.3); margin-bottom: 10px; animation: titleGlow 2s ease-in-out infinite alternate; position: relative; z-index: 1; }
+        @keyframes titleGlow { from { text-shadow: 0 0 20px rgba(157, 126, 216, 0.3); } to { text-shadow: 0 0 40px rgba(157, 126, 216, 0.6), 0 0 60px rgba(138, 43, 226, 0.4); } }
+        .menu-subtitle { font-size: clamp(1em, 3vw, 1.3em); color: #6a5a7a; margin-bottom: 50px; letter-spacing: 5px; position: relative; z-index: 1; }
+        .menu-buttons { display: flex; flex-direction: column; gap: 15px; width: min(300px, 80vw); }
+        .menu-btn { font-size: 1.2em; padding: 15px 30px; background: linear-gradient(145deg, #2d1b4e, #1a0f2e); color: #d4c4e0; border: 3px ridge #5a4a6a; border-radius: 4px; cursor: pointer; transition: all 0.3s; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.4), inset 0 0 20px rgba(88, 28, 135, 0.2); text-shadow: 0 0 5px rgba(157, 126, 216, 0.3); }
+        .menu-btn:hover:not(:disabled) { background: linear-gradient(145deg, #3d2b5e, #2a1f3e); border-color: #7a6a9a; transform: scale(1.05); box-shadow: 0 0 25px rgba(138, 43, 226, 0.4); color: #e4d4f0; }
+        .menu-btn:disabled { opacity: 0.5; cursor: not-allowed; border-color: #3a3a4a; color: #6a6a7a; }
+        .menu-btn.exit { border-color: #6a3a4a; }
+        .menu-btn.exit:hover { background: linear-gradient(145deg, #4a2a3a, #3a1a2a); border-color: #8a4a5a; color: #f0d0d0; }
+        .menu-footer { position: absolute; bottom: 20px; color: #5a4a6a; font-size: 0.85em; }
+
+        .rules-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 6, 24, 0.95); display: none; flex-direction: column; z-index: 3100; padding: 20px; }
+        .rules-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px ridge #4a3f5c; }
+        .rules-title { font-size: 1.8em; color: #9d7ed8; text-shadow: 0 0 10px rgba(157, 126, 216, 0.4); }
+        .rules-content { flex: 1; overflow-y: auto; max-width: 800px; margin: 0 auto; width: 100%; }
+        .rules-section { margin-bottom: 25px; }
+        .rules-section h3 { color: #9d7ed8; margin-bottom: 10px; font-size: 1.2em; }
+        .rules-section p, .rules-section li { color: #b8a0d0; line-height: 1.6; margin-bottom: 8px; }
+        .rules-section ul { padding-left: 20px; }
+        .close-rules-btn { padding: 10px 25px; background: linear-gradient(145deg, #2d1b4e, #1a0f2e); color: #d4c4e0; border: 2px ridge #4a3f5c; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        .close-rules-btn:hover { border-color: #6a5a8a; box-shadow: 0 0 15px rgba(138, 43, 226, 0.3); }
+
+        .hidden { display: none !important; }
+
+        @media (max-height: 700px) {
+            .top-section { padding: 8px 15px; }
+            .main-character-card { padding: 10px; gap: 6px; }
+        }
+        @media (max-width: 600px) {
+            .team-sidebar { width: 95px; }
+            .team-sidebar.left { left: 5px; }
+            .team-sidebar.right { right: 5px; }
+        }
+
+        /* New Game Layout - Abyss Style */
+        .game-top-bar { background: linear-gradient(180deg, #1a0f2e 0%, #0d0618 100%); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px ridge #4a3f5c; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+        .game-title-small { font-size: 1.3em; color: #9d7ed8; font-weight: bold; position: absolute; left: 50%; transform: translateX(-50%); text-shadow: 0 0 15px rgba(157, 126, 216, 0.5); }
+        .game-info-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-left: auto; }
+        .save-btn { cursor: pointer; background: linear-gradient(145deg, #2d1b4e, #1a0f2e) !important; border: 2px ridge #4a3f5c !important; color: #b8a0d0 !important; transition: all 0.2s; }
+        .save-btn:hover { background: linear-gradient(145deg, #3d2b5e, #2a1f3e) !important; border-color: #6a5a8a !important; box-shadow: 0 0 15px rgba(138, 43, 226, 0.3) !important; }
+
+        .game-main-area { flex: 1; display: flex; min-height: 0; padding: 15px; }
+
+        /* Left Panel - Grey block for character info */
+        .character-info-panel { width: 380px; background: linear-gradient(145deg, #5a5a5a, #4a4a4a); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 2px solid #777; }
+        .panel-header { text-align: center; padding-bottom: 15px; border-bottom: 2px solid rgba(255,215,0,0.3); }
+        .current-char-name { font-size: 1.6em; color: #ffd700; font-weight: bold; }
+        .current-char-title { font-size: 0.95em; color: #aaa; margin-top: 5px; }
+        .panel-stats { display: flex; flex-direction: column; gap: 10px; }
+        .panel-stat-row { display: flex; align-items: center; gap: 10px; }
+        .panel-stat-icon { font-size: 1.2em; width: 24px; text-align: center; }
+        .panel-stat-bar-bg { flex: 1; height: 18px; background: rgba(0,0,0,0.4); border-radius: 9px; overflow: hidden; position: relative; }
+        .panel-stat-bar-fill { height: 100%; border-radius: 9px; transition: width 0.3s; }
+        .panel-hp-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+        .panel-mental-fill.vulnerable { background: linear-gradient(90deg, #ff4757, #ff6b81) !important; animation: pulse-red 1s infinite; }
+        @keyframes pulse-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+        .placement-mental-fill.vulnerable { background: linear-gradient(90deg, #ff4757, #ff6b81) !important; }
+        .panel-energy-fill { background: linear-gradient(90deg, #3498db, #2980b9); }
+        .panel-action-fill { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        .panel-stat-text { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7em; font-weight: bold; color: #fff; }
+        .panel-skills { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .panel-skill-btn { padding: 12px; border: none; border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s; display: flex; flex-direction: column; gap: 4px; }
+        .panel-skill-btn:hover:not(:disabled) { transform: translateX(5px); filter: brightness(1.1); }
+        .panel-skill-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .panel-skill-btn.basic { background: linear-gradient(90deg, #27ae60, #2ecc71); color: white; }
+        .panel-skill-btn.skill { background: linear-gradient(90deg, #2980b9, #3498db); color: white; }
+        .panel-skill-btn.ultimate { background: linear-gradient(90deg, #c0392b, #e74c3c); color: white; }
+        .panel-skill-name { font-weight: bold; font-size: 1em; }
+        .panel-skill-desc { font-size: 0.8em; opacity: 0.9; line-height: 1.3; }
+        .panel-skill-cost { font-size: 0.75em; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 10px; align-self: flex-start; margin-top: 4px; }
+        .panel-talents { margin-top: auto; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .panel-talents-title { font-size: 0.9em; color: #9d7ed8; margin-bottom: 8px; }
+        .talent-tag { display: inline-block; background: rgba(157, 126, 216, 0.15); color: #b8a0d0; padding: 4px 10px; border-radius: 4px; font-size: 0.8em; margin: 2px; border: 1px ridge #4a3f5c; }
+
+        /* Character Detail Popup - Abyss Style */
+        .char-detail-popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 6, 24, 0.9); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+        .char-detail-content { background: linear-gradient(145deg, #1a0f2e, #0d0618); border-radius: 8px; padding: 25px; width: 400px; max-width: 90vw; max-height: 90vh; overflow-y: auto; border: 4px ridge #4a3f5c; box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(138, 43, 226, 0.3); position: relative; }
+        .close-popup { position: absolute; top: 10px; right: 15px; background: none; border: none; color: #6a5a7a; font-size: 1.5em; cursor: pointer; transition: color 0.2s; }
+        .close-popup:hover { color: #9d7ed8; }
+        .char-detail-header { text-align: center; padding-bottom: 15px; border-bottom: 2px ridge #4a3f5c; margin-bottom: 15px; }
+        .char-detail-name { font-size: 1.8em; color: #9d7ed8; font-weight: bold; text-shadow: 0 0 10px rgba(157, 126, 216, 0.3); }
+        .char-detail-title { font-size: 1em; color: #7a6a8a; margin-top: 5px; }
+        .char-detail-attrs { display: flex; gap: 8px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+        .char-detail-attr { background: rgba(0,0,0,0.3); padding: 3px 10px; border-radius: 4px; font-size: 0.75em; color: #b8a0d0; border: 1px ridge #3a2a4a; }
+        .char-detail-stats { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .char-detail-skills { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .char-detail-skill { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 12px; border-left: 3px ridge; }
+        .char-detail-skill.basic { border-color: #4a7a4a; }
+        .char-detail-skill.skill { border-color: #4a5a7a; }
+        .char-detail-skill.ultimate { border-color: #7a4a4a; }
+        .char-detail-skill-name { font-weight: bold; color: #d4c4e0; margin-bottom: 4px; }
+        .char-detail-skill-desc { font-size: 0.85em; color: #8a7a8a; margin-bottom: 6px; }
+        .char-detail-skill-cost { font-size: 0.75em; color: #9d7ed8; }
+        .char-detail-talents { padding-top: 15px; border-top: 1px ridge #4a3f5c; }
+        .char-detail-talents-title { color: #ffd700; margin-bottom: 10px; font-size: 0.9em; }
+        .skill-use-btn { width: 100%; margin-top: 8px; padding: 8px; border: 2px ridge; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; background: linear-gradient(145deg, #2d1b4e, #1a0f2e); color: #d4c4e0; }
+        .skill-use-btn.basic { border-color: #4a7a4a; }
+        .skill-use-btn.basic:hover { background: linear-gradient(145deg, #3a5a3a, #2a4a2a); box-shadow: 0 0 10px rgba(60, 140, 60, 0.3); }
+        .skill-use-btn.skill { border-color: #4a5a7a; }
+        .skill-use-btn.skill:hover { background: linear-gradient(145deg, #3a4a6a, #2a3a5a); box-shadow: 0 0 10px rgba(60, 80, 180, 0.3); }
+        .skill-use-btn.ultimate { border-color: #7a4a4a; }
+        .skill-use-btn.ultimate:hover { background: linear-gradient(145deg, #5a3a4a, #4a2a3a); box-shadow: 0 0 10px rgba(180, 60, 80, 0.3); }
+        .skill-use-btn:disabled { background: #2a2a3a; color: #5a5a6a; border-color: #3a3a4a; cursor: not-allowed; opacity: 0.5; }
+        .detail-stat-row { display: flex; align-items: center; gap: 10px; }
+        .detail-stat-icon { font-size: 1.2em; width: 24px; text-align: center; }
+        .detail-stat-bar-bg { flex: 1; height: 18px; background: rgba(0,0,0,0.4); border-radius: 4px; overflow: hidden; position: relative; border: 1px ridge #3a2a4a; }
+        .detail-stat-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+        .detail-hp-fill { background: linear-gradient(90deg, #7a3a4a, #5a2a3a); }
+        .detail-mental-fill { background: linear-gradient(90deg, #5a3a6a, #4a2a5a); }
+        .detail-mental-fill.vulnerable { background: linear-gradient(90deg, #9a3a5a, #7a2a4a) !important; animation: pulse-red 1s infinite; }
+        .detail-energy-fill { background: linear-gradient(90deg, #4a5a7a, #3a4a6a); }
+        .detail-action-fill { background: linear-gradient(90deg, #4a6a5a, #3a5a4a); }
+        .detail-energy-fill { background: linear-gradient(90deg, #3498db, #2980b9); }
+        .detail-action-fill { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        .detail-stat-text { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7em; font-weight: bold; color: #d4c4e0; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+
+        /* Right Area - Character cards (now full width) */
+        .character-cards-area { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 0 20px; }
+
+        /* Hearthstone-style Action Timeline Panel - Abyss Style */
+        .action-timeline-panel { width: 90px; background: linear-gradient(180deg, #1a0f2e 0%, #0d0618 100%); border-radius: 8px; padding: 15px 10px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.6), inset 0 0 30px rgba(88, 28, 135, 0.2); border: 4px ridge #4a3f5c; margin-left: 10px; align-items: center; }
+        .timeline-header { text-align: center; padding-bottom: 10px; border-bottom: 2px ridge #4a3f5c; width: 100%; }
+        .timeline-title { font-size: 1.3em; color: #9d7ed8; text-shadow: 0 0 10px rgba(157, 126, 216, 0.5); }
+        .timeline-subtitle { font-size: 0.7em; color: #6a5a7a; margin-top: 2px; }
+
+        /* Turn Order Section - Upcoming turns */
+        .turn-order-section { display: flex; flex-direction: column; gap: 8px; align-items: center; width: 100%; }
+        .turn-order-title { font-size: 0.75em; color: #3498db; text-align: center; }
+        .turn-list { display: flex; flex-direction: column; gap: 6px; align-items: center; width: 100%; }
+        .turn-icon { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8em; cursor: pointer; position: relative; transition: all 0.2s; border: 2px solid transparent; }
+        .turn-icon.current { border-color: #2ecc71; box-shadow: 0 0 12px rgba(46,204,113,0.5); animation: pulse-turn 1.5s infinite; }
+        .turn-icon.next { border-color: #ffd700; opacity: 0.9; }
+        .turn-icon.future { opacity: 0.5; }
+        .turn-icon:hover { transform: scale(1.1); }
+        .turn-icon .team-indicator { position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #1a252f; font-size: 0.6em; display: flex; align-items: center; justify-content: center; }
+        .turn-icon.team-0 { background: linear-gradient(145deg, rgba(140, 60, 80, 0.2), rgba(100, 40, 60, 0.3)); }
+        .turn-icon.team-1 { background: linear-gradient(145deg, rgba(60, 80, 140, 0.2), rgba(40, 60, 100, 0.3)); }
+        .turn-icon.team-0 .team-indicator { background: #8a4a5a; }
+        .turn-icon.team-1 .team-indicator { background: #4a5a8a; }
+        @keyframes pulse-turn { 0%, 100% { box-shadow: 0 0 5px rgba(46,204,113,0.3); } 50% { box-shadow: 0 0 15px rgba(46,204,113,0.7); } }
+
+        /* Action History Section - Past actions */
+        .action-history-section { flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: center; width: 100%; min-height: 0; }
+        .action-history-title { font-size: 0.7em; color: #e74c3c; text-align: center; }
+        .action-list { display: flex; flex-direction: column-reverse; gap: 6px; align-items: center; width: 100%; overflow-y: auto; padding-right: 2px; }
+        .action-list::-webkit-scrollbar { width: 3px; }
+        .action-list::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.3); border-radius: 2px; }
+
+        /* Action Icon with hover tooltip */
+        .action-icon { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.7em; cursor: pointer; position: relative; transition: all 0.2s; border: 2px solid; }
+        .action-icon:hover { transform: scale(1.15); z-index: 100; }
+        .action-icon.team-0 { background: linear-gradient(145deg, rgba(140, 60, 80, 0.3), rgba(100, 40, 60, 0.4)); border-color: #8a4a5a; }
+        .action-icon.team-1 { background: linear-gradient(145deg, rgba(60, 80, 140, 0.3), rgba(40, 60, 100, 0.4)); border-color: #4a5a8a; }
+        .action-icon .skill-type { position: absolute; bottom: -4px; right: -4px; width: 20px; height: 20px; border-radius: 50%; font-size: 0.65em; display: flex; align-items: center; justify-content: center; border: 2px solid #1a252f; }
+        .action-icon .skill-type.basic { background: #4a7a4a; }
+        .action-icon .skill-type.skill { background: #4a5a7a; }
+        .action-icon .skill-type.ultimate { background: #7a4a4a; }
+
+        /* Hover Tooltip - Abyss Style */
+        .action-tooltip { position: fixed; background: linear-gradient(145deg, #1a0f2e, #0d0618); border: 2px ridge #4a3f5c; border-radius: 8px; padding: 12px; width: 220px; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.2s; pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(138, 43, 226, 0.2); }
+        .action-tooltip.visible { opacity: 1; visibility: visible; }
+        .tooltip-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px ridge #4a3f5c; }
+        .tooltip-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2em; background: rgba(0,0,0,0.3); border: 1px ridge #4a3f5c; }
+        .tooltip-name { font-weight: bold; color: #9d7ed8; font-size: 0.95em; }
+        .tooltip-team { font-size: 0.7em; color: #6a5a7a; }
+        .tooltip-skill { background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 4px; margin-bottom: 8px; border: 1px ridge #3a2a4a; }
+        .tooltip-skill-name { font-weight: bold; color: #d4c4e0; font-size: 0.85em; }
+        .tooltip-skill-type { font-size: 0.7em; color: #8a7a8a; }
+        .tooltip-effects { display: flex; flex-direction: column; gap: 4px; }
+        .tooltip-effect { display: flex; align-items: center; gap: 6px; font-size: 0.8em; padding: 3px 6px; border-radius: 4px; }
+        .tooltip-effect.damage { background: rgba(140, 60, 80, 0.2); color: #c07080; }
+        .tooltip-effect.heal { background: rgba(60, 140, 80, 0.2); color: #70c090; }
+        .tooltip-effect.buff { background: rgba(157, 126, 216, 0.2); color: #9d7ed8; }
+        .tooltip-effect.special { background: rgba(180, 160, 100, 0.2); color: #d4c0a0; }
+        .tooltip-time { font-size: 0.65em; color: #5a4a6a; text-align: right; margin-top: 6px; }
+
+        .round-indicator { text-align: center; padding: 10px 6px; background: rgba(0,0,0,0.3); border-radius: 4px; width: 100%; border: 1px ridge #4a3f5c; }
+        .round-indicator-text { font-size: 0.8em; color: #9d7ed8; font-weight: bold; }
+        .round-indicator-sub { font-size: 0.65em; color: #6a5a7a; margin-top: 2px; }
+
+        @media (max-width: 900px) { .action-timeline-panel { width: 75px; padding: 10px 6px; } }
+        @media (max-width: 700px) { .action-timeline-panel { display: none; } }
+        .cards-row { display: flex; justify-content: center; gap: 20px; flex: 1; align-items: center; }
+        .enemy-row { align-items: flex-start; padding-top: 10px; }
+        .player-row { align-items: flex-end; padding-bottom: 10px; }
+
+        /* Character placement cards - Ancient Stone Style */
+        .placement-card { width: 140px; height: 200px; background: linear-gradient(145deg, #3d2f4d, #251a30); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; align-items: center; gap: 10px; border: 4px ridge #5a4a6a; box-shadow: 0 5px 20px rgba(0,0,0,0.5), inset 0 0 30px rgba(0,0,0,0.3); transition: all 0.3s; position: relative; overflow: visible; }
+        .placement-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+            pointer-events: none;
+            border-radius: 4px;
+        }
+        /* Team-specific ancient stone colors */
+        .placement-card.team-0 { background: linear-gradient(145deg, #4a2f3d, #2d1a25); border-color: #6a4a5a; }
+        .placement-card.team-1 { background: linear-gradient(145deg, #2f3d4a, #1a252d); border-color: #4a5a6a; }
+        .placement-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(88, 28, 135, 0.3); }
+        .placement-card.team-0:hover { box-shadow: 0 10px 30px rgba(180, 60, 60, 0.25); }
+        .placement-card.team-1:hover { box-shadow: 0 10px 30px rgba(60, 100, 180, 0.25); }
+        .placement-card.active-turn { border-color: #9d7ed8; box-shadow: 0 0 25px rgba(157, 126, 216, 0.6); animation: pulse-gold 1.5s infinite; }
+        @keyframes pulse-gold { 0%, 100% { box-shadow: 0 0 15px rgba(157, 126, 216, 0.4); } 50% { box-shadow: 0 0 30px rgba(157, 126, 216, 0.8); } }
+
+        /* Team-specific active states */
+        .placement-card.team-0.active-turn {
+            border-color: #b07080;
+            box-shadow: 0 0 25px rgba(180, 60, 80, 0.6), inset 0 0 30px rgba(180, 60, 80, 0.1);
+        }
+        .placement-card.team-1.active-turn {
+            border-color: #7090b0;
+            box-shadow: 0 0 25px rgba(60, 100, 180, 0.6), inset 0 0 30px rgba(60, 100, 180, 0.1);
+        }
+
+        /* Active character highlight animation */
+        @keyframes activePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+        }
+        .placement-card.active-turn {
+            animation: pulse-gold 1.5s infinite, activePulse 0.8s infinite;
+        }
+        .placement-card.dead { opacity: 0.5; filter: grayscale(100%); }
+        .placement-card.selected { border-color: #ffd700; box-shadow: 0 0 25px rgba(255,215,0,0.8); cursor: pointer; animation: pulse-gold 1s infinite; }
+        .placement-card.selectable:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(255,215,0,0.9); cursor: pointer; }
+        .placement-card.ready { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.5); }
+
+        .placement-avatar { width: 70px; height: 70px; background: rgba(0,0,0,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2em; }
+        .placement-name { font-weight: bold; font-size: 0.95em; text-align: center; }
+        .team-0 .placement-name { color: #d4b0b8; }
+        .team-1 .placement-name { color: #b0c0d4; }
+        .placement-title { font-size: 0.75em; color: #8a7a8a; text-align: center; }
+        .placement-bars { width: 100%; display: flex; flex-direction: column; gap: 4px; }
+        .placement-bar-bg { height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden; }
+        .placement-hp-fill { height: 100%; background: #e74c3c; border-radius: 4px; }
+        .placement-mental-fill { height: 100%; background: #9b59b6; border-radius: 4px; }
+        .placement-status { position: absolute; top: 8px; left: 8px; font-size: 0.7em; background: rgba(0,0,0,0.6); color: #d4c4e0; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px ridge #5a4a6a; }
+        .placement-status.acted { background: rgba(60,60,70,0.8); color: #8a8a9a; }
+
+        .resource-bar { background: linear-gradient(180deg, #1a0f2e 0%, #0d0618 100%); padding: 12px 20px; display: flex; justify-content: space-around; border-top: 4px ridge #4a3f5c; box-shadow: 0 -5px 20px rgba(0,0,0,0.4); }
+        .resource-team { display: flex; align-items: center; gap: 15px; font-size: 1.1em; }
+        .resource-team .team-name { font-weight: bold; }
+        .resource-team.team1-resources { color: #b07080; text-shadow: 0 0 10px rgba(180, 60, 80, 0.3); }
+        .resource-team.team2-resources { color: #7090b0; text-shadow: 0 0 10px rgba(60, 100, 180, 0.3); }
+        .resource-team .resource-value { color: #9d7ed8; }
+
+        @media (max-width: 900px) {
+            .placement-card { width: 120px; height: 170px; }
+            .action-badge { width: 20px; height: 20px; font-size: 0.65em; top: 6px; right: 6px; border-width: 1px; }
+        }
+        @media (max-width: 700px) {
+            .placement-card { width: 100px; height: 140px; }
+            .placement-avatar { width: 50px; height: 50px; font-size: 1.5em; }
+            .action-badge { width: 18px; height: 18px; font-size: 0.6em; top: 5px; right: 5px; border-width: 1px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="setupScreen" class="setup-screen hidden">
+            <h1 class="setup-title">選擇角色</h1>
+            <p class="setup-instruction" id="setupInstruction">玩家1請選擇 2 個角色</p>
+            <div class="character-grid" id="charGrid"></div>
+            <button class="setup-btn" id="confirmBtn" disabled>確認選擇</button>
+        </div>
+
+        <div id="actorPrompt" class="actor-prompt hidden">
+            <h3 id="actorName">--</h3>
+            <p>可以行動了！</p>
+        </div>
+
+        <!-- Turn Transition Overlay -->
+        <div id="turnTransition" class="turn-transition hidden">
+            <div class="transition-content">
+                <div class="transition-label">下一個行動</div>
+                <div class="transition-avatar" id="transitionAvatar">👤</div>
+                <div class="transition-name" id="transitionName">--</div>
+                <div class="transition-title" id="transitionTitle">--</div>
+                <div class="transition-team" id="transitionTeam">--</div>
+            </div>
+        </div>
+
+        <div id="targetOverlay" class="target-overlay hidden">
+            <h3>選擇目標</h3>
+            <div class="target-cards" id="targetCards"></div>
+        </div>
+
+        <div id="actionTooltip" class="action-tooltip">
+            <div class="tooltip-header">
+                <div class="tooltip-avatar" id="tooltipAvatar">👤</div>
+                <div>
+                    <div class="tooltip-name" id="tooltipName">--</div>
+                    <div class="tooltip-team" id="tooltipTeam">--</div>
+                </div>
+            </div>
+            <div class="tooltip-skill">
+                <div class="tooltip-skill-name" id="tooltipSkill">--</div>
+                <div class="tooltip-skill-type" id="tooltipSkillType">--</div>
+            </div>
+            <div class="tooltip-effects" id="tooltipEffects"></div>
+            <div class="tooltip-time" id="tooltipTime">--</div>
+        </div>
+
+        <div id="charDetailPopup" class="char-detail-popup hidden">
+            <div class="char-detail-content">
+                <button class="close-popup" onclick="game.closeCharDetail()">✕</button>
+                <div class="char-detail-header">
+                    <div class="char-detail-name" id="detailCharName">--</div>
+                    <div class="char-detail-title" id="detailCharTitle">--</div>
+                    <div class="char-detail-attrs" id="detailCharAttrs"></div>
+                </div>
+                <div class="char-detail-stats" id="detailCharStats"></div>
+                <div class="char-detail-skills" id="detailCharSkills"></div>
+                <div class="char-detail-talents" id="detailCharTalents"></div>
+            </div>
+        </div>
+
+        <div id="victoryScreen" class="victory-screen hidden">
+            <h2 class="victory-text" id="victoryText">玩家1 獲勝！</h2>
+            <button class="restart-btn" onclick="location.reload()">再玩一次</button>
+        </div>
+
+        <div id="mainMenu" class="main-menu">
+            <div class="menu-title">校園對決</div>
+            <div class="menu-subtitle">CAMPUS DUEL</div>
+            <div class="menu-buttons">
+                <button class="menu-btn" onclick="game.showSetup()">開始遊戲</button>
+                <button class="menu-btn" id="continueBtn" onclick="game.continueGame()" disabled>繼續遊戲</button>
+                <button class="menu-btn" onclick="game.showRules()">遊戲規則</button>
+                <button class="menu-btn exit" onclick="game.exitGame()">退出</button>
+            </div>
+            <div class="menu-footer">v1.0 | 4位角色可使用</div>
+        </div>
+
+        <div id="rulesOverlay" class="rules-overlay">
+            <div class="rules-header">
+                <div class="rules-title">遊戲規則</div>
+                <button class="close-rules-btn" onclick="game.hideRules()">返回</button>
+            </div>
+            <div class="rules-content">
+                <div class="rules-section">
+                    <h3>基礎資源</h3>
+                    <ul>
+                        <li><strong>生命值 (HP)</strong>：初始100點，歸零即陣亡</li>
+                        <li><strong>心理壓力</strong>：上限200點，達上限獲得50%易傷</li>
+                        <li><strong>能量值</strong>：上限10點，用於施放大招</li>
+                        <li><strong>戰技點</strong>：隊伍共用，上限6點，用於施放戰技</li>
+                    </ul>
+                </div>
+                <div class="rules-section">
+                    <h3>技能類型</h3>
+                    <ul>
+                        <li><strong>普攻</strong>：回復1能量 + 1戰技點</li>
+                        <li><strong>戰技</strong>：消耗2戰技點，回復2能量</li>
+                        <li><strong>大招</strong>：消耗5能量</li>
+                    </ul>
+                </div>
+                <div class="rules-section">
+                    <h3>回合機制</h3>
+                    <ul>
+                        <li>行動點決定行動順序，敏捷越高初始行動點越高</li>
+                        <li>回合點用盡時回合結束，切換晝夜</li>
+                        <li>部分角色技能在晝夜會有不同效果</li>
+                    </ul>
+                </div>
+                <div class="rules-section">
+                    <h3>當前可用角色</h3>
+                    <ul>
+                        <li><strong>瑞安</strong>：「做局人」- 隨機心理壓力，有機率無效敵人行動</li>
+                        <li><strong>勞倫斯</strong>：「工程撚」- 自我治療，夜間增益，陣亡反擊</li>
+                        <li><strong>約書亞</strong>：「黑化靈長類」- 5%機率爆耳膜秒殺，全體增益</li>
+                        <li><strong>巧可</strong>：「黑寡婦」- 高生命，高傷害，可獲得無法選中</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="gameScreen" class="hidden" style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+            <!-- Top Bar -->
+            <div class="game-top-bar">
+                <div class="info-item round-points-display">回合點: <span id="roundPoints">10</span></div>
+                <div class="game-title-small">校園對決</div>
+                <div class="game-info-bar">
+                    <div class="info-item">
+                        <span id="dayNightIcon">☀️</span>
+                        <span id="dayNightText" class="day">日間</span>
+                    </div>
+                    <div class="info-item">回合: <span id="roundNum">1</span></div>
+                    <div class="info-item current-player" id="currentPlayerBox">
+                        <span id="currentPlayer">--</span>
+                    </div>
+                    <div class="info-item save-btn" onclick="game.saveGame()">💾 保存</div>
+                </div>
+            </div>
+
+            <!-- Main Game Area -->
+            <div class="game-main-area">
+                <!-- Character Cards Grid (Full Width) -->
+                <div class="character-cards-area">
+                    <!-- Enemy Team (Top) -->
+                    <div class="cards-row enemy-row" id="enemyCardsRow">
+                        <!-- Enemy cards will be inserted here -->
+                    </div>
+                    <!-- Player Team (Bottom) -->
+                    <div class="cards-row player-row" id="playerCardsRow">
+                        <!-- Player cards will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Action Timeline Panel (Right Side) -->
+                <div class="action-timeline-panel">
+                    <div class="timeline-header">
+                        <div class="timeline-title">⚡</div>
+                        <div class="timeline-subtitle">Timeline</div>
+                    </div>
+                    <div class="turn-order-section">
+                        <div class="turn-order-title">▲ 即將</div>
+                        <div class="turn-list" id="turnList">
+                            <!-- Turn icons will be inserted here -->
+                        </div>
+                    </div>
+                    <div class="action-history-section">
+                        <div class="action-history-title">▼ 已行動</div>
+                        <div class="action-list" id="actionList">
+                            <!-- Action icons will be inserted here -->
+                        </div>
+                    </div>
+                    <div class="round-indicator">
+                        <div class="round-indicator-text" id="timelineRound">1</div>
+                        <div class="round-indicator-sub" id="timelineDayNight">☀️ 日間</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resource Bar -->
+            <div class="resource-bar">
+                <div class="resource-team team1-resources">
+                    <span class="team-name">隊伍1</span>
+                    <span class="resource-value">戰技點: <span id="team1SkillPoints">2</span>/6</span>
+                </div>
+                <div class="resource-team team2-resources">
+                    <span class="team-name">隊伍2</span>
+                    <span class="resource-value">戰技點: <span id="team2SkillPoints">2</span>/6</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CHARACTERS = {
+            ryan: {
+                id: 'ryan', name: '瑞安', title: '做局人',
+                attributes: ['老實', '坑兄弟', '學渣'],
+                agility: 4, maxHp: 100, maxMental: 200,
+                isMale: true,
+                skills: {
+                    basic: { name: '過肩摔', desc: '對敵人造成10點物理傷害' },
+                    skill: { name: '邀請', desc: '造成1-10心理壓力，2%機率觸發大招，最多3次' },
+                    ultimate: { name: '請客', desc: '造成40點心理壓力' }
+                },
+                talents: ['耍賴', '錢多']
+            },
+            lawrence: {
+                id: 'lawrence', name: '勞倫斯', title: '工程撚',
+                attributes: ['老六', '坑兄弟', '良心'],
+                agility: 6, maxHp: 100, maxMental: 200,
+                isMale: true,
+                skills: {
+                    basic: { name: '掐大腿', desc: '造成5點物理傷害，持續1回合，最多2層' },
+                    skill: { name: '不樂意', desc: '減少40點心理壓力，回復10點生命值' },
+                    ultimate: { name: '陰間老六', desc: '60%機率造成30傷害+10持續，40%逃走(70%成功)' }
+                },
+                talents: ['極限一換一', '晚間出生']
+            },
+            joshua: {
+                id: 'joshua', name: '約書亞', title: '黑化靈長類',
+                attributes: ['?'],
+                agility: 5, maxHp: 100, maxMental: 200,
+                isMale: true,
+                skills: {
+                    basic: { name: '馬騮叫', desc: '造成5點物理傷害，5%機率【爆耳膜】' },
+                    skill: { name: '馬騮跳', desc: '造成10點心理壓力，持續2回合，最多2層' },
+                    ultimate: { name: '全面GAY GAY狀態', desc: '友方+50%傷害，敵人15點心理壓力，持續1回合' }
+                },
+                talents: ['WhatsApp戰場', 'GAY']
+            },
+            choco: {
+                id: 'choco', name: '巧可', title: '黑寡婦',
+                attributes: ['暴脾氣', '運動', '手賤'],
+                agility: 6, maxHp: 130, maxMental: 200,
+                isMale: false,
+                skills: {
+                    basic: { name: '大逼兜', desc: '造成5點物理傷害和10點心理壓力' },
+                    skill: { name: '嘴砲', desc: '造成15點心理壓力，20%機率【靈感迸發】' },
+                    ultimate: { name: '家鄉的感覺', desc: '獲得無法選中狀態，持續1回合' }
+                },
+                talents: ['排球隊', '妖艷VShow']
+            }
+        };
+
+        class Game {
+            constructor() {
+                this.teams = [[], []];
+                this.currentTeam = 0;
+                this.currentActor = null;
+                this.round = 1;
+                this.isDay = true;
+                this.roundPoints = 10;
+                this.skillPoints = [2, 2];
+                this.selectedChars = { 0: [], 1: [] };
+                this.currentSelector = 0;
+                this.pendingAction = null;
+                this.targetSelectionMode = false;
+                this.targetEnemyTeam = null;
+                this.actionHistory = [];
+                this.init();
+            }
+
+            init() {
+                // Check if there's a saved game
+                const hasSave = localStorage.getItem('campusDuel_save');
+                if (hasSave) {
+                    document.getElementById('continueBtn').disabled = false;
+                }
+            }
+
+            showSetup() {
+                document.getElementById('mainMenu').classList.add('hidden');
+                document.getElementById('setupScreen').classList.remove('hidden');
+                this.renderCharSelect();
+            }
+
+            continueGame() {
+                const saveData = localStorage.getItem('campusDuel_save');
+                if (saveData) {
+                    this.loadGame(JSON.parse(saveData));
+                }
+            }
+
+            showRules() {
+                document.getElementById('rulesOverlay').style.display = 'flex';
+            }
+
+            hideRules() {
+                document.getElementById('rulesOverlay').style.display = 'none';
+            }
+
+            exitGame() {
+                if (confirm('確定要退出遊戲嗎？')) {
+                    window.close();
+                    // Fallback if window.close() doesn't work
+                    document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:#1a1a2e;color:#ffd700;font-size:2em;">感謝遊玩！</div>';
+                }
+            }
+
+            saveGame() {
+                const saveData = {
+                    teams: this.teams.map(team => team.map(char => ({
+                        id: char.id, name: char.name, title: char.title,
+                        team: char.team, pos: char.pos,
+                        hp: char.hp, mental: char.mental, energy: char.energy,
+                        action: char.action, dead: char.dead,
+                        buffs: char.buffs, inviteCount: char.inviteCount || 0, inviteChance: char.inviteChance || 2,
+                        pinchStacks: char.pinchStacks || {}, monkeyJumpStacks: char.monkeyJumpStacks || {}
+                    }))),
+                    currentTeam: this.currentTeam, currentActor: this.currentActor ? { team: this.currentActor.team, pos: this.currentActor.pos } : null,
+                    round: this.round, isDay: this.isDay, roundPoints: this.roundPoints,
+                    skillPoints: this.skillPoints, savedAt: Date.now()
+                };
+                localStorage.setItem('campusDuel_save', JSON.stringify(saveData));
+                this.log('遊戲已保存', 'system');
+            }
+
+            loadGame(saveData) {
+                this.round = saveData.round;
+                this.isDay = saveData.isDay;
+                this.roundPoints = saveData.roundPoints;
+                this.skillPoints = saveData.skillPoints;
+                this.currentTeam = saveData.currentTeam;
+
+                // Rebuild teams from templates
+                this.teams = saveData.teams.map((team, t) => team.map((savedChar, i) => {
+                    const template = CHARACTERS[savedChar.id];
+                    return {
+                        ...template,
+                        team: savedChar.team, pos: savedChar.pos,
+                        hp: savedChar.hp, mental: savedChar.mental,
+                        energy: savedChar.energy, action: savedChar.action,
+                        dead: savedChar.dead, buffs: savedChar.buffs || [],
+                        inviteCount: savedChar.inviteCount || 0, inviteChance: savedChar.inviteChance || 2,
+                        pinchStacks: savedChar.pinchStacks || {}, monkeyJumpStacks: savedChar.monkeyJumpStacks || {}
+                    };
+                }));
+
+                if (saveData.currentActor) {
+                    this.currentActor = this.teams[saveData.currentActor.team][saveData.currentActor.pos];
+                } else {
+                    this.currentActor = null;
+                }
+
+                document.getElementById('mainMenu').classList.add('hidden');
+                document.getElementById('gameScreen').classList.remove('hidden');
+                this.log('遊戲已載入 - 第 ' + this.round + ' 回合', 'system');
+                this.updateDisplay();
+            }
+
+            renderCharSelect() {
+                const grid = document.getElementById('charGrid');
+                grid.innerHTML = '';
+                Object.values(CHARACTERS).forEach(char => {
+                    const card = document.createElement('div');
+                    card.className = 'select-card';
+                    card.dataset.id = char.id;
+                    card.innerHTML = '<div class="select-name">' + char.name + '</div><div class="select-title">「' + char.title + '」</div><div class="select-attr">' + char.attributes.join(' ') + '</div>';
+                    card.onclick = () => this.toggleSelection(char.id);
+                    grid.appendChild(card);
+                });
+                document.getElementById('confirmBtn').onclick = () => this.confirmSelection();
+            }
+
+            toggleSelection(charId) {
+                const selected = this.selectedChars[this.currentSelector];
+                const card = document.querySelector('.select-card[data-id="' + charId + '"]');
+                if (selected.includes(charId)) {
+                    selected.splice(selected.indexOf(charId), 1);
+                    card.classList.remove('selected-p' + (this.currentSelector + 1));
+                } else if (selected.length < 2) {
+                    selected.push(charId);
+                    card.classList.add('selected-p' + (this.currentSelector + 1));
+                }
+                document.getElementById('confirmBtn').disabled = selected.length !== 2;
+            }
+
+            confirmSelection() {
+                if (this.currentSelector === 0) {
+                    this.currentSelector = 1;
+                    document.getElementById('setupInstruction').textContent = '玩家2請選擇 2 個角色';
+                    document.querySelectorAll('.select-card').forEach(c => c.classList.remove('selected-p1'));
+                    document.getElementById('confirmBtn').disabled = true;
+                    document.getElementById('confirmBtn').textContent = '開始戰鬥';
+                } else {
+                    this.startGame();
+                }
+            }
+
+            startGame() {
+                // Clear any saved game when starting new
+                localStorage.removeItem('campusDuel_save');
+
+                document.getElementById('setupScreen').classList.add('hidden');
+                document.getElementById('gameScreen').classList.remove('hidden');
+
+                for (let t = 0; t < 2; t++) {
+                    this.teams[t] = this.selectedChars[t].map((id, i) => {
+                        const template = CHARACTERS[id];
+                        return {
+                            ...template,
+                            team: t, pos: i,
+                            hp: template.maxHp,
+                            mental: 0,
+                            energy: 0,
+                            action: template.agility,
+                            dead: false,
+                            buffs: [],
+                            inviteCount: 0,
+                            inviteChance: 2,
+                            pinchStacks: {},
+                            monkeyJumpStacks: {}
+                        };
+                    });
+                }
+
+                this.applyPermanentTalents();
+                this.log('戰鬥開始！', 'system');
+                this.log('玩家1: ' + this.teams[0].map(c => c.name).join(', '), 'system');
+                this.log('玩家2: ' + this.teams[1].map(c => c.name).join(', '), 'system');
+                this.startNewRound();
+            }
+
+            applyPermanentTalents() {
+                this.teams.forEach(team => {
+                    team.forEach(char => {
+                        if (char.id === 'joshua') {
+                            const enemyTeam = char.team === 0 ? 1 : 0;
+                            this.teams[enemyTeam].forEach(enemy => {
+                                if (enemy.isMale) {
+                                    enemy.mental += 5;
+                                    this.log('【GAY】' + enemy.name + ' 受到5點心理壓力', 'system');
+                                }
+                            });
+                        }
+                        if (char.id === 'choco') {
+                            const enemyTeam = char.team === 0 ? 1 : 0;
+                            this.teams[enemyTeam].forEach(enemy => {
+                                enemy.mental += 5;
+                                this.log('【妖艷VShow】' + enemy.name + ' 受到5點心理壓力', 'system');
+                            });
+                        }
+                    });
+                });
+            }
+
+            startNewRound() {
+                // Calculate initial round points based on total characters
+                const newRoundPoints = this.calculateRoundPoints();
+                // Carry over remaining points from previous round (Article 2.3.2)
+                this.roundPoints = this.roundPoints + newRoundPoints;
+
+                this.teams.forEach(team => {
+                    team.forEach(char => {
+                        if (!char.dead) {
+                            // Do NOT reset action points here - they carry over (Article 2.4.1)
+                            // Only reset when the character actually gets a turn
+                            char.energy = Math.min(10, char.energy + 1);
+                        }
+                    });
+                });
+                this.log('第 ' + this.round + ' 回合開始', 'important');
+                this.log(this.isDay ? '日間回合' : '晚間回合', 'system');
+                this.log('回合點: ' + this.roundPoints, 'system');
+                this.findNextActor();
+            }
+
+            calculateRoundPoints() {
+                const total = this.teams[0].length + this.teams[1].length;
+                if (total === 2) return 10;
+                if (total <= 4) return 25;
+                if (total <= 6) return 27;
+                return 29;
+            }
+
+            showTurnTransition(nextActor, callback) {
+                const transition = document.getElementById('turnTransition');
+                const content = transition.querySelector('.transition-content');
+                const avatar = nextActor.char.isMale ? '👤' : '👩';
+                const teamClass = nextActor.team === 0 ? 'team1' : 'team2';
+                const teamText = nextActor.team === 0 ? '隊伍1' : '隊伍2';
+                const borderColor = nextActor.team === 0 ? '#e74c3c' : '#3498db';
+
+                document.getElementById('transitionAvatar').textContent = avatar;
+                document.getElementById('transitionName').textContent = nextActor.char.name;
+                document.getElementById('transitionTitle').textContent = '「' + nextActor.char.title + '」';
+                document.getElementById('transitionTeam').textContent = teamText;
+                document.getElementById('transitionTeam').className = 'transition-team ' + teamClass;
+
+                // Set border color based on team
+                content.style.borderColor = borderColor;
+
+                transition.classList.remove('hidden');
+
+                // Hide after 1 second then execute callback
+                setTimeout(() => {
+                    transition.classList.add('hidden');
+                    content.style.borderColor = '#ffd700'; // Reset to default
+                    if (callback) callback();
+                }, 1000);
+            }
+
+            findNextActor() {
+                // Find all characters who can act (not dead and have action <= 0)
+                let readyChars = [];
+                this.teams.forEach((team, teamIdx) => {
+                    team.forEach((char, charIdx) => {
+                        if (!char.dead && char.action <= 0) {
+                            readyChars.push({ char, team: teamIdx, pos: charIdx, agility: char.agility });
+                        }
+                    });
+                });
+
+                // If there are characters ready to act, let them act
+                if (readyChars.length > 0) {
+                    // Sort by agility (lowest first) - Article 2.4.2
+                    readyChars.sort((a, b) => a.agility - b.agility);
+                    const nextActor = readyChars[0];
+
+                    if (readyChars.length > 1) {
+                        this.log(readyChars.length + ' 個角色同時獲得行動機會，敏捷最低者 (' + nextActor.char.agility + ') 優先: ' + nextActor.char.name, 'system');
+                    }
+
+                    // Show transition before switching
+                    this.showTurnTransition(nextActor, () => {
+                        this.currentTeam = nextActor.team;
+                        this.currentActor = nextActor.char;
+                        document.getElementById('actorName').textContent = nextActor.char.name;
+                        document.getElementById('actorPrompt').classList.remove('hidden');
+                        // Auto-close after 1 second
+                        setTimeout(() => {
+                            this.confirmActor();
+                        }, 1000);
+                    });
+                    this.updateDisplay();
+                    return;
+                }
+
+                // No one ready to act - need to consume round points
+                // Find all living characters to calculate min action
+                let activeChars = [];
+                this.teams.forEach((team, teamIdx) => {
+                    team.forEach((char, charIdx) => {
+                        if (!char.dead) {
+                            activeChars.push({ char, team: teamIdx, pos: charIdx });
+                        }
+                    });
+                });
+
+                // If no living characters, end round
+                if (activeChars.length === 0) {
+                    this.endRound();
+                    return;
+                }
+
+                // Find the character with the lowest action points (Article 2.3.1)
+                activeChars.sort((a, b) => a.char.action - b.char.action);
+                const minAction = activeChars[0].char.action;
+                const lowestChar = activeChars[0].char;
+
+                // Check if round points are sufficient (Article 2.3.2)
+                if (this.roundPoints < minAction) {
+                    this.log('回合點 (' + this.roundPoints + ') 不足以讓任何角色行動，結束回合並將剩餘回合點加至下一回合', 'system');
+                    this.endRound();
+                    return;
+                }
+
+                // Consume round points equal to the lowest action value (Article 2.3.1)
+                this.roundPoints -= minAction;
+                this.log('回合點消耗: ' + minAction + ', 剩餘: ' + this.roundPoints, 'system');
+
+                // Subtract from all characters' action points
+                this.teams.forEach(team => {
+                    team.forEach(char => {
+                        if (!char.dead) {
+                            char.action -= minAction;
+                        }
+                    });
+                });
+
+                // Now find characters whose action points reached 0
+                readyChars = [];
+                this.teams.forEach((team, teamIdx) => {
+                    team.forEach((char, charIdx) => {
+                        if (!char.dead && char.action <= 0) {
+                            readyChars.push({ char, team: teamIdx, pos: charIdx, agility: char.agility });
+                        }
+                    });
+                });
+
+                if (readyChars.length === 0) {
+                    // This shouldn't happen, but just in case
+                    this.findNextActor();
+                    return;
+                }
+
+                // Sort by agility (lowest first) - Article 2.4.2
+                readyChars.sort((a, b) => a.agility - b.agility);
+
+                const nextActor = readyChars[0];
+
+                if (readyChars.length > 1) {
+                    this.log(readyChars.length + ' 個角色同時獲得行動機會，敏捷最低者 (' + nextActor.char.agility + ') 優先: ' + nextActor.char.name, 'system');
+                }
+
+                // Show transition before switching
+                this.showTurnTransition(nextActor, () => {
+                    this.currentTeam = nextActor.team;
+                    this.currentActor = nextActor.char;
+                    document.getElementById('actorName').textContent = nextActor.char.name;
+                    document.getElementById('actorPrompt').classList.remove('hidden');
+                    // Auto-close after 1 second
+                    setTimeout(() => {
+                        this.confirmActor();
+                    }, 1000);
+                });
+                this.updateDisplay();
+            }
+
+            confirmActor() {
+                document.getElementById('actorPrompt').classList.add('hidden');
+
+                // Check for enemy 耍賴 talent (Ryan's talent should affect enemies, not himself)
+                const enemyTeam = this.currentActor.team === 0 ? 1 : 0;
+                const hasRyanOnEnemyTeam = this.teams[enemyTeam].some(c => c.id === 'ryan' && !c.dead);
+                if (hasRyanOnEnemyTeam && Math.random() * 100 < 5) {
+                    this.log('【耍賴】觸發！' + this.currentActor.name + ' 的行動無效！', 'skill');
+                    // Reset action points even if nullified
+                    this.currentActor.action = this.currentActor.agility <= 3 ? this.currentActor.agility + 1 : this.currentActor.agility;
+                    this.findNextActor();
+                    return;
+                }
+
+                this.log('現在是 ' + this.currentActor.name + ' 的回合！', 'important');
+                this.updateDisplay();
+            }
+
+            updateDisplay() {
+                const myTeam = this.currentTeam;
+                const enemyTeam = myTeam === 0 ? 1 : 0;
+
+                // Render character cards
+                this.renderCharacterCards();
+
+                // Update resource bar
+                document.getElementById('team1SkillPoints').textContent = this.skillPoints[0];
+                document.getElementById('team2SkillPoints').textContent = this.skillPoints[1];
+
+                // Update top bar
+                document.getElementById('roundPoints').textContent = Math.max(0, this.roundPoints);
+                document.getElementById('roundNum').textContent = this.round;
+                document.getElementById('currentPlayer').textContent = this.currentActor ? this.currentActor.name + ' (玩家' + (this.currentTeam + 1) + ')' : '--';
+                document.getElementById('dayNightIcon').textContent = this.isDay ? '☀️' : '🌙';
+                document.getElementById('dayNightText').textContent = this.isDay ? '日間' : '晚間';
+                document.getElementById('dayNightText').className = this.isDay ? 'day' : 'night';
+
+                // Update timeline
+                this.updateTimeline();
+            }
+
+            updateTimeline() {
+                // Update round indicator
+                document.getElementById('timelineRound').textContent = this.round;
+                document.getElementById('timelineDayNight').textContent = this.isDay ? '☀️ 日間' : '🌙 晚間';
+
+                // Update turn order (upcoming turns)
+                const turnOrder = this.calculateTurnOrder();
+                const turnHtml = turnOrder.map((item, index) => {
+                    const isCurrent = this.currentActor && item.char.id === this.currentActor.id;
+                    const avatar = item.char.isMale ? '👤' : '👩';
+                    const teamClass = 'team-' + item.team;
+                    let iconClass = 'turn-icon ' + teamClass;
+                    if (isCurrent) iconClass += ' current';
+                    else if (index === 1) iconClass += ' next';
+                    else iconClass += ' future';
+
+                    return '<div class="' + iconClass + '" title="' + item.char.name + ' (敏捷: ' + item.char.agility + ')">' +
+                        avatar +
+                        '<div class="team-indicator">' + (item.team + 1) + '</div>' +
+                        '</div>';
+                }).join('');
+                document.getElementById('turnList').innerHTML = turnHtml || '<div style="color:#666;font-size:0.7em;">無</div>';
+
+                // Update action history
+                this.updateActionHistoryIcons();
+            }
+
+            updateActionHistoryIcons() {
+                const historyHtml = this.actionHistory.map((item, index) => {
+                    const avatar = item.charIsMale ? '👤' : '👩';
+                    const teamClass = 'team-' + item.team;
+                    const skillClass = item.skillType || 'basic';
+                    const iconId = 'action-icon-' + index;
+
+                    return '<div class="action-icon ' + teamClass + '" id="' + iconId + '" ' +
+                        'data-action-index="' + index + '">' +
+                        avatar +
+                        '<div class="skill-type ' + skillClass + '">' + this.getSkillIcon(skillClass) + '</div>' +
+                        '</div>';
+                }).join('');
+                document.getElementById('actionList').innerHTML = historyHtml || '<div style="color:#666;font-size:0.7em;">暫無</div>';
+
+                // Add hover listeners
+                this.actionHistory.forEach((item, index) => {
+                    const icon = document.getElementById('action-icon-' + index);
+                    if (icon) {
+                        icon.addEventListener('mouseenter', (e) => this.showActionTooltip(e, item));
+                        icon.addEventListener('mouseleave', () => this.hideActionTooltip());
+                        icon.addEventListener('mousemove', (e) => this.moveActionTooltip(e));
+                    }
+                });
+            }
+
+            getSkillIcon(type) {
+                if (type === 'basic') return '⚔️';
+                if (type === 'skill') return '🔹';
+                if (type === 'ultimate') return '🔴';
+                return '⚔️';
+            }
+
+            showActionTooltip(e, item) {
+                const tooltip = document.getElementById('actionTooltip');
+                const avatar = item.charIsMale ? '👤' : '👩';
+
+                document.getElementById('tooltipAvatar').textContent = avatar;
+                document.getElementById('tooltipName').textContent = item.charName;
+                document.getElementById('tooltipTeam').textContent = '隊伍' + (item.team + 1) + ' · ' + item.charTitle;
+                document.getElementById('tooltipSkill').textContent = item.skillName;
+                document.getElementById('tooltipSkillType').textContent = this.getSkillTypeName(item.skillType);
+                document.getElementById('tooltipTime').textContent = item.time;
+
+                // Build effects list
+                let effectsHtml = '';
+                if (item.effects && item.effects.length > 0) {
+                    item.effects.forEach(effect => {
+                        const effectClass = effect.type;
+                        effectsHtml += '<div class="tooltip-effect ' + effectClass + '">' + effect.text + '</div>';
+                    });
+                } else {
+                    effectsHtml = '<div style="color:#666;font-size:0.75em;">無效果</div>';
+                }
+                document.getElementById('tooltipEffects').innerHTML = effectsHtml;
+
+                tooltip.classList.add('visible');
+                this.moveActionTooltip(e);
+            }
+
+            hideActionTooltip() {
+                document.getElementById('actionTooltip').classList.remove('visible');
+            }
+
+            moveActionTooltip(e) {
+                const tooltip = document.getElementById('actionTooltip');
+                const rect = tooltip.getBoundingClientRect();
+                let left = e.clientX + 15;
+                let top = e.clientY - rect.height / 2;
+
+                // Keep tooltip on screen
+                if (left + rect.width > window.innerWidth) {
+                    left = e.clientX - rect.width - 15;
+                }
+                if (top < 0) top = 10;
+                if (top + rect.height > window.innerHeight) {
+                    top = window.innerHeight - rect.height - 10;
+                }
+
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = top + 'px';
+            }
+
+            getSkillTypeName(type) {
+                if (type === 'basic') return '普通攻擊';
+                if (type === 'skill') return '戰技';
+                if (type === 'ultimate') return '大招';
+                return '攻擊';
+            }
+
+            calculateTurnOrder() {
+                const allChars = [];
+                this.teams.forEach((team, teamIdx) => {
+                    team.forEach((char, charIdx) => {
+                        if (!char.dead) {
+                            const effectiveAction = Math.max(0, char.action);
+                            allChars.push({
+                                char,
+                                team: teamIdx,
+                                pos: charIdx,
+                                effectiveAction,
+                                agility: char.agility
+                            });
+                        }
+                    });
+                });
+
+                allChars.sort((a, b) => {
+                    const aReady = a.effectiveAction <= 0 ? 0 : 1;
+                    const bReady = b.effectiveAction <= 0 ? 0 : 1;
+                    if (aReady !== bReady) return aReady - bReady;
+                    if (a.effectiveAction !== b.effectiveAction) return a.effectiveAction - b.effectiveAction;
+                    return a.agility - b.agility;
+                });
+
+                return allChars.slice(0, 5);
+            }
+
+            addToActionHistory(msg, type, details = {}) {
+                const time = new Date().toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                // Extract character info from details or parse from msg
+                const charName = details.charName || (this.currentActor ? this.currentActor.name : '未知');
+                const charTitle = details.charTitle || (this.currentActor ? this.currentActor.title : '');
+                const charIsMale = details.charIsMale !== undefined ? details.charIsMale : (this.currentActor ? this.currentActor.isMale : true);
+                const team = details.team !== undefined ? details.team : (this.currentActor ? this.currentActor.team : 0);
+                const skillName = details.skillName || '攻擊';
+                const skillType = details.skillType || 'basic';
+
+                // Build effects array
+                const effects = [];
+                if (details.damage) {
+                    effects.push({ type: 'damage', text: '💥 造成 ' + details.damage + ' 點傷害' });
+                }
+                if (details.heal) {
+                    effects.push({ type: 'heal', text: '💚 回復 ' + details.heal + ' 點生命' });
+                }
+                if (details.mental) {
+                    effects.push({ type: 'damage', text: '😰 施加 ' + details.mental + ' 點心理壓力' });
+                }
+                if (details.buff) {
+                    effects.push({ type: 'buff', text: '✨ ' + details.buff });
+                }
+                if (details.special) {
+                    effects.push({ type: 'special', text: '⭐ ' + details.special });
+                }
+
+                this.actionHistory.unshift({
+                    charName,
+                    charTitle,
+                    charIsMale,
+                    team,
+                    skillName,
+                    skillType,
+                    effects,
+                    time,
+                    msg
+                });
+
+                if (this.actionHistory.length > 5) this.actionHistory.pop();
+                this.updateActionHistoryIcons();
+            }
+
+            renderCharacterCards() {
+                // Render enemy cards (team 1 or 2 depending on current team)
+                const enemyTeam = this.currentTeam === 0 ? 1 : 0;
+                const myTeam = this.currentTeam;
+
+                const enemyHtml = this.teams[enemyTeam].map((char, i) => this.createPlacementCard(char, i, enemyTeam)).join('');
+                document.getElementById('enemyCardsRow').innerHTML = enemyHtml;
+
+                const playerHtml = this.teams[myTeam].map((char, i) => this.createPlacementCard(char, i, myTeam)).join('');
+                document.getElementById('playerCardsRow').innerHTML = playerHtml;
+            }
+
+            renderSidebar(teamIdx) {
+                // Deprecated - now using renderCharacterCards
+            }
+
+            useSkill(type) {
+                if (!this.currentActor || this.currentActor.dead) return;
+                const char = this.currentActor;
+                const team = char.team;
+                if (type === 'skill' && this.skillPoints[team] < 2) return;
+                if (type === 'ultimate' && char.energy < 5) return;
+
+                this.pendingAction = { type, char };
+                const enemyTeam = team === 0 ? 1 : 0;
+
+                if (type === 'skill' && char.id === 'lawrence') {
+                    this.executeSkill(null);
+                } else if (type === 'ultimate' && (char.id === 'choco' || char.id === 'joshua')) {
+                    this.executeSkill(null);
+                } else {
+                    const hasValidTarget = this.teams[enemyTeam].some(c => !c.dead && !c.buffs.some(b => b.type === 'untargetable'));
+                    if (hasValidTarget) {
+                        this.targetSelectionMode = true;
+                        this.targetEnemyTeam = enemyTeam;
+                        this.log('請點擊敵方角色選擇目標', 'system');
+                        this.renderCharacterCards();
+                    } else {
+                        this.executeSkill(null);
+                    }
+                }
+            }
+
+            showCharDetail(team, pos) {
+                // If in target selection mode, handle as target selection
+                if (this.targetSelectionMode && this.pendingAction) {
+                    const enemyTeam = this.currentActor.team === 0 ? 1 : 0;
+                    if (team === enemyTeam) {
+                        const target = this.teams[team][pos];
+                        if (!target.dead && !target.buffs.some(b => b.type === 'untargetable')) {
+                            this.targetSelectionMode = false;
+                            this.executeSkill(pos);
+                        } else {
+                            this.log('無法選擇該目標', 'system');
+                        }
+                    }
+                    return;
+                }
+
+                const char = this.teams[team][pos];
+                const isCurrentActor = this.currentActor && char.team === this.currentActor.team && char.pos === this.currentActor.pos;
+                const canAct = isCurrentActor && char.action <= 0 && !char.dead;
+                const myTeam = this.currentTeam;
+                const canSkill = this.skillPoints[myTeam] >= 2;
+                const canUlt = char.energy >= 5;
+
+                // Header
+                document.getElementById('detailCharName').textContent = char.name;
+                document.getElementById('detailCharTitle').textContent = '「' + char.title + '」';
+                document.getElementById('detailCharAttrs').innerHTML = char.attributes.map(a => '<span class="char-detail-attr">' + a + '</span>').join('');
+
+                // Stats
+                const actionPercent = char.action <= 0 ? 100 : (1 - (char.action / char.agility)) * 100;
+                const isVulnerable = char.mental >= char.maxMental;
+                const mentalBarClass = isVulnerable ? 'detail-mental-fill vulnerable' : 'detail-mental-fill';
+                const mentalText = isVulnerable ? char.mental + '/' + char.maxMental + ' 易傷!' : char.mental + '/' + char.maxMental;
+                const mentalIcon = isVulnerable ? '💥' : '🧠';
+                const actionStatusText = char.action <= 0 ? '就緒' : '行動點: ' + char.action + '/' + char.agility;
+
+                const statsHtml =
+                    '<div class="detail-stat-row"><span class="detail-stat-icon">❤️</span><div class="detail-stat-bar-bg"><div class="detail-stat-bar-fill detail-hp-fill" style="width:' + ((char.hp/char.maxHp)*100) + '%"></div><span class="detail-stat-text">' + char.hp + '/' + char.maxHp + '</span></div></div>' +
+                    '<div class="detail-stat-row"><span class="detail-stat-icon">' + mentalIcon + '</span><div class="detail-stat-bar-bg"><div class="detail-stat-bar-fill ' + mentalBarClass + '" style="width:' + ((char.mental/char.maxMental)*100) + '%"></div><span class="detail-stat-text"' + (isVulnerable ? ' style="color:#ff6b6b;font-weight:bold;"' : '') + '>' + mentalText + '</span></div></div>' +
+                    '<div class="detail-stat-row"><span class="detail-stat-icon">⚡</span><div class="detail-stat-bar-bg"><div class="detail-stat-bar-fill detail-energy-fill" style="width:' + ((char.energy/10)*100) + '%"></div><span class="detail-stat-text">' + char.energy + '/10</span></div></div>' +
+                    '<div class="detail-stat-row"><span class="detail-stat-icon">💨</span><div class="detail-stat-bar-bg"><div class="detail-stat-bar-fill detail-action-fill" style="width:' + actionPercent + '%"></div><span class="detail-stat-text">' + actionStatusText + '</span></div></div>' +
+                    '<div class="detail-stat-row" style="margin-top:8px;padding-top:8px;border-top:1px ridge #4a3f5c;"><span class="detail-stat-icon">👟</span><span style="color:#7a6a8a;font-size:0.85em;">敏捷 (固定值): <span style="color:#9d7ed8;font-weight:bold;">' + char.agility + '</span></span></div>';
+                document.getElementById('detailCharStats').innerHTML = statsHtml;
+
+                // Skills
+                let skillsHtml = '';
+
+                // Basic skill
+                skillsHtml += '<div class="char-detail-skill basic">';
+                skillsHtml += '<div class="char-detail-skill-name">⚔️ ' + char.skills.basic.name + '</div>';
+                skillsHtml += '<div class="char-detail-skill-desc">' + char.skills.basic.desc + '</div>';
+                skillsHtml += '<div class="char-detail-skill-cost">回復1能量 +1戰技點</div>';
+                if (canAct) {
+                    skillsHtml += '<button class="skill-use-btn basic" onclick="game.useSkillFromPopup(\'basic\')">使用</button>';
+                }
+                skillsHtml += '</div>';
+
+                // Skill
+                skillsHtml += '<div class="char-detail-skill skill">';
+                skillsHtml += '<div class="char-detail-skill-name">🔹 ' + char.skills.skill.name + '</div>';
+                skillsHtml += '<div class="char-detail-skill-desc">' + char.skills.skill.desc + '</div>';
+                skillsHtml += '<div class="char-detail-skill-cost">消耗2戰技點 回復2能量</div>';
+                if (canAct) {
+                    const disabled = canSkill ? '' : 'disabled';
+                    skillsHtml += '<button class="skill-use-btn skill" onclick="game.useSkillFromPopup(\'skill\')" ' + disabled + '>使用' + (canSkill ? '' : ' (戰技點不足)') + '</button>';
+                }
+                skillsHtml += '</div>';
+
+                // Ultimate
+                skillsHtml += '<div class="char-detail-skill ultimate">';
+                skillsHtml += '<div class="char-detail-skill-name">🔴 ' + char.skills.ultimate.name + '</div>';
+                skillsHtml += '<div class="char-detail-skill-desc">' + char.skills.ultimate.desc + '</div>';
+                skillsHtml += '<div class="char-detail-skill-cost">消耗5能量</div>';
+                if (canAct) {
+                    const disabled = canUlt ? '' : 'disabled';
+                    skillsHtml += '<button class="skill-use-btn ultimate" onclick="game.useSkillFromPopup(\'ultimate\')" ' + disabled + '>使用' + (canUlt ? '' : ' (能量不足)') + '</button>';
+                }
+                skillsHtml += '</div>';
+
+                document.getElementById('detailCharSkills').innerHTML = skillsHtml;
+
+                // Talents
+                const talentsHtml = '<div class="char-detail-talents-title">天賦</div>' +
+                    char.talents.map(t => '<span class="talent-tag">' + t + '</span>').join('');
+                document.getElementById('detailCharTalents').innerHTML = talentsHtml;
+
+                // Show popup
+                document.getElementById('charDetailPopup').classList.remove('hidden');
+            }
+
+            closeCharDetail() {
+                document.getElementById('charDetailPopup').classList.add('hidden');
+            }
+
+            useSkillFromPopup(type) {
+                this.closeCharDetail();
+                this.useSkill(type);
+            }
+
+            renderCharacterCards() {
+                const enemyTeam = this.currentTeam === 0 ? 1 : 0;
+                const myTeam = this.currentTeam;
+
+                const enemyHtml = this.teams[enemyTeam].map((char, i) => this.createPlacementCard(char, i, enemyTeam)).join('');
+                document.getElementById('enemyCardsRow').innerHTML = enemyHtml;
+
+                const playerHtml = this.teams[myTeam].map((char, i) => this.createPlacementCard(char, i, myTeam)).join('');
+                document.getElementById('playerCardsRow').innerHTML = playerHtml;
+            }
+
+            createPlacementCard(char, pos, team) {
+                const isCurrentActor = this.currentActor && char.team === this.currentActor.team && char.pos === this.currentActor.pos;
+                const isReady = !char.dead && char.action <= 0;
+                const isEnemy = team !== this.currentTeam;
+                const isSelectable = this.targetSelectionMode && isEnemy && !char.dead && !char.buffs.some(b => b.type === 'untargetable');
+                const avatar = char.isMale ? '👤' : '👩';
+                const isVulnerable = char.mental >= char.maxMental;
+
+                let statusBadge = '';
+                if (char.dead) statusBadge = '<div class="placement-status">陣亡</div>';
+                else if (isVulnerable) statusBadge = '<div class="placement-status" style="background:#ff4757;color:#fff;">易傷</div>';
+
+                // Action badge - show action points on top-right corner
+                let actionBadge = '';
+                if (!char.dead) {
+                    if (isCurrentActor) {
+                        actionBadge = '<div class="action-badge acting" title="正在行動">⚡</div>';
+                    } else if (char.action <= 0) {
+                        actionBadge = '<div class="action-badge ready" title="可以行動">●</div>';
+                    } else {
+                        actionBadge = '<div class="action-badge waiting" title="行動點剩餘: ' + char.action + '">' + char.action + '</div>';
+                    }
+                }
+
+                let cardClass = 'placement-card team-' + team;
+                if (isCurrentActor) cardClass += ' active-turn';
+                if (char.dead) cardClass += ' dead';
+                if (isSelectable) cardClass += ' selected';
+                if (isReady && !isCurrentActor) cardClass += ' ready';
+
+                // If in target selection mode, clicking selects target; otherwise shows character details
+                const onclickAttr = 'onclick="game.showCharDetail(' + team + ',' + pos + ')"';
+
+                const mentalPercent = (char.mental/char.maxMental)*100;
+                const mentalFillClass = char.mental >= char.maxMental ? 'placement-mental-fill vulnerable' : 'placement-mental-fill';
+
+                return '<div class="' + cardClass + '" ' + onclickAttr + '>' +
+                    actionBadge +
+                    statusBadge +
+                    '<div class="placement-avatar">' + avatar + '</div>' +
+                    '<div class="placement-name">' + char.name + '</div>' +
+                    '<div class="placement-title">' + char.title + '</div>' +
+                    '<div class="placement-bars">' +
+                    '<div class="placement-bar-bg"><div class="placement-hp-fill" style="width:' + ((char.hp/char.maxHp)*100) + '%"></div></div>' +
+                    '<div class="placement-bar-bg"><div class="' + mentalFillClass + '" style="width:' + mentalPercent + '%"></div></div>' +
+                    '</div>' +
+                    '</div>';
+            }
+
+            showTargetSelect(enemyTeam) {
+                // Deprecated - using card selection instead
+            }
+
+            executeSkill(targetIdx) {
+                if (this.targetSelectionMode) {
+                    this.targetSelectionMode = false;
+                }
+                document.getElementById('targetOverlay').classList.add('hidden');
+                const { type, char } = this.pendingAction;
+                const team = char.team;
+                const enemyTeam = team === 0 ? 1 : 0;
+                const target = targetIdx !== null ? this.teams[enemyTeam][targetIdx] : null;
+
+                if (type === 'skill') {
+                    this.skillPoints[team] -= 2;
+                    char.energy = Math.min(10, char.energy + 2);
+                } else if (type === 'ultimate') {
+                    char.energy -= 5;
+                } else if (type === 'basic') {
+                    char.energy = Math.min(10, char.energy + 1);
+                    this.skillPoints[team] = Math.min(6, this.skillPoints[team] + 1);
+                }
+
+                // Store action details for history
+                this.currentActionDetails = {
+                    charName: char.name,
+                    charTitle: char.title,
+                    charIsMale: char.isMale,
+                    team: team,
+                    skillName: char.skills[type].name,
+                    skillType: type,
+                    damage: 0,
+                    mental: 0,
+                    heal: 0,
+                    buff: '',
+                    special: ''
+                };
+
+                this.processSkillEffect(char, type, target, enemyTeam);
+                // Reset action points to agility after acting (Article 2.4.1)
+                // +1 bonus if agility <= 3 (Article 2.4.3)
+                char.action = char.agility <= 3 ? char.agility + 1 : char.agility;
+                this.log(char.name + ' 使用了【' + char.skills[type].name + '】', 'skill', this.currentActionDetails);
+                this.log(char.name + ' 的行動點重置為 ' + char.action + ' (敏捷' + char.agility + (char.agility <= 3 ? '+1)' : ')'), 'system');
+
+                // Clear action details
+                this.currentActionDetails = null;
+
+                if (this.checkVictory()) return;
+                this.findNextActor();
+            }
+
+            processSkillEffect(char, type, target, enemyTeam) {
+                let damageBoost = 0;
+                char.buffs.forEach(b => { if (b.type === 'damageBoost' && b.turns > 0) damageBoost += b.value; });
+                if (char.id === 'lawrence' && !this.isDay) { damageBoost += 0.1; this.log('【晚間出生】傷害+10%', 'skill'); }
+
+                switch (char.id) {
+                    case 'ryan':
+                        if (type === 'basic' && target) this.dealDamage(target, 10, 'physical', damageBoost, char);
+                        else if (type === 'skill' && target) {
+                            const dmg = Math.floor(Math.random() * 10) + 1;
+                            this.dealDamage(target, dmg, 'mental', damageBoost, char);
+                            char.inviteCount++;
+                            const chance = char.inviteChance + (char.inviteCount - 1);
+                            if (Math.random() * 100 < chance) {
+                                this.log('邀請被接受！即時施放大招！', 'important');
+                                if (char.energy >= 5) {
+                                    char.energy -= 5;
+                                    const payment = Math.floor(Math.random() * 1000) + 1;
+                                    const boost = payment * 0.001;
+                                    this.log('【請客】支付了 $' + payment + '，傷害提升 ' + (boost * 100).toFixed(1) + '%', 'skill');
+                                    this.dealDamage(target, 40, 'mental', damageBoost + boost, char);
+                                }
+                            }
+                            if (char.inviteCount >= 3) char.inviteCount = 0;
+                        } else if (type === 'ultimate' && target) {
+                            const payment = Math.floor(Math.random() * 1000) + 1;
+                            const boost = payment * 0.001;
+                            this.log('【請客】支付了 $' + payment + '，傷害提升 ' + (boost * 100).toFixed(1) + '%', 'skill');
+                            this.dealDamage(target, 40, 'mental', damageBoost + boost, char);
+                        }
+                        break;
+
+                    case 'lawrence':
+                        if (type === 'basic' && target) {
+                            this.dealDamage(target, 5, 'physical', damageBoost, char);
+                            if (!char.pinchStacks[target.name]) char.pinchStacks[target.name] = 0;
+                            if (char.pinchStacks[target.name] < 2) {
+                                char.pinchStacks[target.name]++;
+                                target.buffs.push({ type: 'dot', dmg: 5, turns: 1 });
+                                this.log(target.name + ' 被掐大腿 (' + char.pinchStacks[target.name] + '/2層)', 'skill');
+                            }
+                        } else if (type === 'skill') {
+                            char.mental = Math.max(0, char.mental - 40);
+                            char.hp = Math.min(char.maxHp, char.hp + 10);
+                            this.log(char.name + ' 減少40點心理壓力，回復10點生命值', 'heal');
+                            if (this.currentActionDetails) {
+                                this.currentActionDetails.heal += 10;
+                                this.currentActionDetails.special += '心理壓力-40 ';
+                            }
+                        } else if (type === 'ultimate' && target) {
+                            if (Math.random() * 100 < 60) {
+                                this.dealDamage(target, 30, 'physical', damageBoost, char);
+                                target.buffs.push({ type: 'dot', dmg: 10, turns: 1 });
+                            } else {
+                                this.log('【逃走】嘗試中...', 'system');
+                                if (Math.random() * 100 < 70) this.log('成功逃脫！', 'system');
+                                else { this.log('逃走失敗！觸發【玉石俱焚】！', 'important'); this.dealDamage(target, 50, 'physical', damageBoost, char); }
+                            }
+                        }
+                        break;
+
+                    case 'joshua':
+                        if (type === 'basic' && target) {
+                            this.dealDamage(target, 5, 'physical', damageBoost, char);
+                            if (Math.random() * 100 < 5) {
+                                this.log('【爆耳膜】觸發！', 'important');
+                                target.hp = 1; target.buffs.push({ type: 'skipNextTurn', turns: 1 });
+                                this.log(target.name + ' 生命值降至1點並跳過下次行動！', 'damage');
+                            }
+                        } else if (type === 'skill' && target) {
+                            this.dealDamage(target, 10, 'mental', damageBoost, char);
+                            if (!char.monkeyJumpStacks[target.name]) char.monkeyJumpStacks[target.name] = 0;
+                            if (char.monkeyJumpStacks[target.name] < 2) {
+                                char.monkeyJumpStacks[target.name]++;
+                                target.buffs.push({ type: 'mental_dot', dmg: 10, turns: 2 });
+                                this.log(target.name + ' 受到精神污染 (' + char.monkeyJumpStacks[target.name] + '/2層)', 'skill');
+                            }
+                        } else if (type === 'ultimate') {
+                            this.teams[char.team].forEach(ally => { if (!ally.dead) ally.buffs.push({ type: 'damageBoost', value: 0.5, turns: 1 }); });
+                            this.teams[enemyTeam].forEach(enemy => { if (!enemy.dead) this.dealDamage(enemy, 15, 'mental', damageBoost, char); });
+                            this.log('友方獲得50%傷害增益，敵方受到精神污染！', 'skill');
+                            if (this.currentActionDetails) {
+                                this.currentActionDetails.buff += '友方+50%傷害 ';
+                            }
+                        }
+                        this.teams[enemyTeam].forEach(enemy => { if (!enemy.dead && enemy.isMale) this.dealDamage(enemy, 5, 'mental', 0, char); });
+                        break;
+
+                    case 'choco':
+                        if (type === 'basic' && target) {
+                            this.dealDamage(target, 5, 'physical', damageBoost, char);
+                            this.dealDamage(target, 10, 'mental', damageBoost, char);
+                        } else if (type === 'skill' && target) {
+                            this.dealDamage(target, 15, 'mental', damageBoost, char);
+                            if (Math.random() * 100 < 20) {
+                                this.log('【靈感迸發】觸發！', 'skill');
+                                char.buffs.push({ type: 'mentalBoost', value: 1.0, turns: 1 });
+                                this.dealDamage(target, 5, 'physical', damageBoost, char);
+                                this.dealDamage(target, 10, 'mental', damageBoost, char);
+                            }
+                        } else if (type === 'ultimate') {
+                            char.buffs.push({ type: 'untargetable', turns: 1 });
+                            this.log(char.name + ' 獲得【無法選中】！', 'skill');
+                            if (this.currentActionDetails) {
+                                this.currentActionDetails.buff += '無法選中 ';
+                            }
+                        }
+                        this.teams[enemyTeam].forEach(enemy => { if (!enemy.dead) this.dealDamage(enemy, 5, 'mental', 0, char); });
+                        break;
+                }
+            }
+
+            dealDamage(target, amount, type, boost, attacker = null) {
+                if (target.dead) return;
+                if (target.buffs.some(b => b.type === 'untargetable')) { this.log(target.name + ' 處於【無法選中】狀態！', 'system'); return; }
+                let final = amount;
+                if (boost > 0) final = final * (1 + boost);
+                if (target.mental >= target.maxMental) { final = final * 1.5; this.log(target.name + ' 心理崩潰！受到額外傷害！', 'damage'); }
+                final = Math.round(final * 10) / 10;
+                if (type === 'physical') {
+                    target.hp = Math.max(0, target.hp - final);
+                    this.log(target.name + ' 受到 ' + final + ' 點物理傷害', 'damage');
+                    // Track physical damage
+                    if (this.currentActionDetails) {
+                        this.currentActionDetails.damage += final;
+                    }
+                } else {
+                    target.mental = Math.min(target.maxMental, target.mental + final);
+                    this.log(target.name + ' 受到 ' + final + ' 點心理壓力', 'damage');
+                    // Track mental damage
+                    if (this.currentActionDetails) {
+                        this.currentActionDetails.mental += final;
+                    }
+                }
+                if (target.hp <= 0 && !target.dead) {
+                    target.dead = true;
+                    this.log(target.name + ' 陣亡了！', 'important');
+                    // Lawrence death talent: 極限一換一
+                    if (target.id === 'lawrence') {
+                        this.log('【極限一換一】觸發！', 'important');
+                        if (Math.random() * 100 < 30) {
+                            // Find who caused the death or use a random enemy
+                            let victim = attacker;
+                            if (!victim || victim.dead) {
+                                const enemyTeam = target.team === 0 ? 1 : 0;
+                                const enemies = this.teams[enemyTeam].filter(c => !c.dead);
+                                if (enemies.length > 0) {
+                                    victim = enemies[Math.floor(Math.random() * enemies.length)];
+                                }
+                            }
+                            if (victim && !victim.dead) {
+                                victim.hp = 0;
+                                victim.dead = true;
+                                this.log('【玉石俱焚】！' + target.name + ' 與 ' + victim.name + ' 同歸於盡！', 'important');
+                            } else {
+                                this.log('【極限一換一】失敗！沒有有效的目標。', 'system');
+                            }
+                        } else {
+                            this.log('【極限一換一】失敗！', 'system');
+                        }
+                    }
+                }
+            }
+
+            endRound() {
+                this.log('回合點用盡，回合結束', 'system');
+
+                // Check for Joshua's WhatsApp talent before day/night switch
+                const dayToNight = this.isDay; // If currently day, switching to night
+                if (dayToNight) {
+                    this.teams.forEach(team => {
+                        team.forEach(char => {
+                            if (char.id === 'joshua' && !char.dead) {
+                                const enemyTeam = char.team === 0 ? 1 : 0;
+                                const enemies = this.teams[enemyTeam].filter(c => !c.dead);
+                                if (enemies.length > 0) {
+                                    const victim = enemies[Math.floor(Math.random() * enemies.length)];
+                                    victim.buffs.push({ type: 'skipNextTurn', turns: 1 });
+                                    this.log('【WhatsApp戰場】' + victim.name + ' 下次行動被跳過！', 'skill');
+                                }
+                            }
+                        });
+                    });
+                }
+
+                this.teams.forEach(team => {
+                    team.forEach(char => {
+                        if (!char.dead) {
+                            // Process DoT damage first, then decrement turns
+                            char.buffs.forEach(b => {
+                                if (b.turns > 0) {
+                                    if (b.type === 'dot') this.dealDamage(char, b.dmg, 'physical', 0);
+                                    if (b.type === 'mental_dot') this.dealDamage(char, b.dmg, 'mental', 0);
+                                }
+                            });
+                            // Now remove expired buffs
+                            char.buffs = char.buffs.filter(b => {
+                                b.turns--;
+                                return b.turns > 0;
+                            });
+                        }
+                    });
+                });
+                if (this.checkVictory()) return;
+                this.round++;
+                this.isDay = !this.isDay;
+                this.startNewRound();
+            }
+
+            checkVictory() {
+                const t1Alive = this.teams[0].some(c => !c.dead);
+                const t2Alive = this.teams[1].some(c => !c.dead);
+                if (!t1Alive || !t2Alive) {
+                    const winner = t1Alive ? 1 : 2;
+                    document.getElementById('victoryText').textContent = '玩家' + winner + ' 獲勝！';
+                    document.getElementById('victoryText').className = 'victory-text victory-p' + winner;
+                    document.getElementById('victoryScreen').classList.remove('hidden');
+                    return true;
+                }
+                return false;
+            }
+
+            log(msg, type, details = {}) {
+                // Only add to action history when there's an actual skill use (details.skillName exists)
+                // This prevents multiple entries for damage/heal logs from a single action
+                if (details && details.skillName) {
+                    this.addToActionHistory(msg, type, details);
+                }
+            }
+
+            addToActionHistory(msg, type, details = {}) {
+                const time = new Date().toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                // Extract character info from details or use current actor
+                const charName = details.charName || (this.currentActor ? this.currentActor.name : '未知');
+                const charTitle = details.charTitle || (this.currentActor ? this.currentActor.title : '');
+                const charIsMale = details.charIsMale !== undefined ? details.charIsMale : (this.currentActor ? this.currentActor.isMale : true);
+                const team = details.team !== undefined ? details.team : (this.currentActor ? this.currentActor.team : 0);
+                const skillName = details.skillName || '攻擊';
+                const skillType = details.skillType || 'basic';
+
+                // Build effects array
+                const effects = [];
+                if (details.damage) {
+                    effects.push({ type: 'damage', text: '💥 造成 ' + details.damage + ' 點傷害' });
+                }
+                if (details.heal) {
+                    effects.push({ type: 'heal', text: '💚 回復 ' + details.heal + ' 點生命' });
+                }
+                if (details.mental) {
+                    effects.push({ type: 'damage', text: '😰 施加 ' + details.mental + ' 點心理壓力' });
+                }
+                if (details.buff) {
+                    effects.push({ type: 'buff', text: '✨ ' + details.buff });
+                }
+                if (details.special) {
+                    effects.push({ type: 'special', text: '⭐ ' + details.special });
+                }
+
+                this.actionHistory.unshift({
+                    charName,
+                    charTitle,
+                    charIsMale,
+                    team,
+                    skillName,
+                    skillType,
+                    effects,
+                    time,
+                    msg
+                });
+
+                if (this.actionHistory.length > 5) this.actionHistory.pop();
+                this.updateActionHistoryIcons();
+            }
+        }
+
+        const game = new Game();
+    </script>
+</body>
+</html>
